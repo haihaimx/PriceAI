@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import crypto from "node:crypto";
 import { ProxyAgent } from "undici";
@@ -58,6 +58,7 @@ let ldxpRuntimeSettings = {
 const SHOP_API_PROXY_REQUEST_TIMEOUT_MS = 20_000;
 const DEFAULT_SHOP_API_PROXY_REUSE_LIMIT = 0;
 const DEFAULT_SHOP_API_PROXY_REUSE_TTL_MS = 55_000;
+const DEFAULT_SHOP_API_PROXY_MAX_RUNS = 1;
 const SHOP_API_PROXY_EXPIRY_SAFETY_MS = 45_000;
 const SHOP_API_PROXY_ROTATION_WINDOW_MS = 10 * 60 * 1000;
 const SHOP_API_PROXY_MAX_ROTATIONS_PER_WINDOW = 2;
@@ -662,6 +663,7 @@ export {
   cooldownSkipReason,
   createShopApiProxyReusePool,
   closeShopApiProxyReusePool,
+  discardShopApiProxyReuseForTarget,
   collectTargetWithRetries,
   extractProxyLeaseFromPayload,
   isDailyProbeFailure,
@@ -678,6 +680,8 @@ export {
   resolveShopApiFeeModel,
   alternateLdxpHost,
   shopApiFullSnapshotEvidenceReliable,
+  shopApiProxyContextFromReusePool,
+  restoreShopApiProxyReusePool,
   shopApiSnapshotReportedGoodsCount,
   shopApiProductLevelFeeModel,
   loadTargets,
@@ -5762,11 +5766,67 @@ function createShopApiProxyReusePool(options = {}) {
     enabled: true,
     limit: shopApiProxyReuseLimitFor(options),
     ttlMs: shopApiProxyReuseTtlMsFor(options),
+    statePath: String(optionValue(options, "shopApiProxyStatePath", "shop-api-proxy-state-path") || "").trim() || null,
+    maxRuns: integerInRange(
+      optionValue(options, "shopApiProxyMaxRuns", "shop-api-proxy-max-runs"),
+      1,
+      10,
+      DEFAULT_SHOP_API_PROXY_MAX_RUNS,
+    ),
+    logger: options.shopApiProxyLogger || null,
     entries: new Map(),
     blockedDirectExits: new Set(),
     rotationStates: new Map(),
     nextAcquireReasons: new Map(),
   };
+}
+
+async function restoreShopApiProxyReusePool(pool) {
+  if (!pool?.enabled || !pool.statePath || !existsSync(pool.statePath)) return 0;
+
+  let stored;
+  try {
+    stored = JSON.parse(readFileSync(pool.statePath, "utf8"));
+  } catch {
+    removeShopApiProxyReuseState(pool);
+    pool.logger?.log("Shop API proxy lease state was invalid and has been cleared.");
+    return 0;
+  }
+
+  const now = Date.now();
+  let restoredCount = 0;
+  for (const [poolKey, lease] of Object.entries(stored?.version === 1 && stored?.leases ? stored.leases : {})) {
+    const proxyUrl = String(lease?.proxyUrl || "").trim();
+    const expiresAt = Number(lease?.expiresAt || 0);
+    const usedRuns = Math.max(1, Math.trunc(Number(lease?.usedRuns) || 1));
+    if (
+      !poolKey ||
+      !proxyUrl ||
+      !Number.isFinite(expiresAt) ||
+      expiresAt <= now + SHOP_API_PROXY_EXPIRY_SAFETY_MS ||
+      usedRuns >= pool.maxRuns
+    ) {
+      continue;
+    }
+
+    const nextUsedRuns = usedRuns + 1;
+    pool.entries.set(poolKey, {
+      context: {
+        proxyUrl,
+        dispatcher: new ProxyAgent(proxyUrl),
+      },
+      expiresAt,
+      remaining: pool.limit > 0 ? pool.limit : null,
+      usedRuns: nextUsedRuns,
+    });
+    restoredCount += 1;
+    pool.logger?.log(
+      `Shop API proxy lease restored for ${poolKey}; run ${nextUsedRuns}/${pool.maxRuns}; expires at ${new Date(expiresAt).toISOString()}.`,
+    );
+  }
+
+  persistShopApiProxyReusePool(pool);
+  return restoredCount;
 }
 
 function isShopApiDirectExitBlockedForTarget(target, options = {}) {
@@ -5813,6 +5873,7 @@ async function shopApiProxyContextFromReusePool(poolKey, options = {}) {
     await closeShopApiProxyReuseEntry(existing);
     pool.entries.delete(poolKey);
     pool.nextAcquireReasons.set(poolKey, "lease-expired");
+    persistShopApiProxyReusePool(pool);
   }
 
   const proxyLease = await resolveShopApiProxyUrl(options);
@@ -5826,8 +5887,10 @@ async function shopApiProxyContextFromReusePool(poolKey, options = {}) {
     },
     expiresAt: proxyLease.expiresAt || now + pool.ttlMs,
     remaining: limit === null ? null : limit - 1,
+    usedRuns: 1,
   };
   pool.entries.set(poolKey, entry);
+  persistShopApiProxyReusePool(pool);
   const acquireReason = pool.nextAcquireReasons.get(poolKey) || "initial";
   pool.nextAcquireReasons.delete(poolKey);
   logger?.log(`Shop API proxy lease acquired for ${poolKey}; reason=${acquireReason}; expires at ${new Date(entry.expiresAt).toISOString()}.`);
@@ -5851,6 +5914,7 @@ async function discardShopApiProxyReuseForTarget(target, options = {}, details =
 
   await closeShopApiProxyReuseEntry(entry);
   pool.entries.delete(poolKey);
+  persistShopApiProxyReusePool(pool);
 
   if (rotationState.count >= SHOP_API_PROXY_MAX_ROTATIONS_PER_WINDOW) {
     rotationState.cooldownUntil = rotationState.windowStartedAt + SHOP_API_PROXY_ROTATION_WINDOW_MS;
@@ -5891,6 +5955,50 @@ async function closeShopApiProxyReusePool(pool) {
 
 async function closeShopApiProxyReuseEntry(entry) {
   await entry?.context?.dispatcher?.close?.().catch(() => {});
+}
+
+function persistShopApiProxyReusePool(pool) {
+  if (!pool?.statePath) return;
+
+  const now = Date.now();
+  const leases = {};
+  for (const [poolKey, entry] of pool.entries || []) {
+    if (!entry?.context?.proxyUrl || entry.expiresAt <= now + SHOP_API_PROXY_EXPIRY_SAFETY_MS) continue;
+    leases[poolKey] = {
+      proxyUrl: entry.context.proxyUrl,
+      expiresAt: entry.expiresAt,
+      usedRuns: Math.max(1, Math.trunc(Number(entry.usedRuns) || 1)),
+    };
+  }
+
+  if (!Object.keys(leases).length) {
+    removeShopApiProxyReuseState(pool);
+    return;
+  }
+
+  const temporaryPath = `${pool.statePath}.${process.pid}.tmp`;
+  try {
+    const stateDirectory = dirname(pool.statePath);
+    mkdirSync(stateDirectory, { recursive: true, mode: 0o700 });
+    writeFileSync(temporaryPath, `${JSON.stringify({ version: 1, leases })}\n`, { mode: 0o600 });
+    chmodSync(temporaryPath, 0o600);
+    renameSync(temporaryPath, pool.statePath);
+    chmodSync(pool.statePath, 0o600);
+  } catch (error) {
+    try {
+      rmSync(temporaryPath, { force: true });
+    } catch {}
+    pool.logger?.log(`Shop API proxy lease state could not be persisted: ${errorMessage(error)}`);
+  }
+}
+
+function removeShopApiProxyReuseState(pool) {
+  if (!pool?.statePath) return;
+  try {
+    rmSync(pool.statePath, { force: true });
+  } catch (error) {
+    pool.logger?.log(`Shop API proxy lease state could not be cleared: ${errorMessage(error)}`);
+  }
 }
 
 function shopApiProxyReuseLimitFor(options = {}) {

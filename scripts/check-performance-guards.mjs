@@ -462,6 +462,16 @@ assert(/check-performance-guards\.mjs/.test(buildCloudflareText), "scripts/build
 const qualityWorkflowText = read(".github/workflows/quality.yml");
 assert(/npm run check:performance/.test(qualityWorkflowText), ".github/workflows/quality.yml: run performance guards before build.");
 
+const hotVerifierLauncherText = read("ops/shop-collectors/run-hot-offer-verifier.sh");
+assert(/STATE_DIRECTORY/.test(hotVerifierLauncherText), "hot offer verifier must persist proxy leases in its systemd state directory.");
+assert(/--proxy-state-path/.test(hotVerifierLauncherText), "hot offer verifier must pass the proxy lease state path.");
+assert(/--proxy-max-runs/.test(hotVerifierLauncherText), "hot offer verifier must cap cross-run proxy lease reuse.");
+assert(/PRICEAI_HOT_VERIFY_PROXY_REUSE_TTL_MS:-600000/.test(hotVerifierLauncherText), "hot offer verifier fallback lease TTL must cover two five-minute runs.");
+
+const hotVerifierServiceText = read("ops/shop-collectors/systemd/priceai-hot-offer-verifier.service");
+assert(/StateDirectory=priceai-hot-offer-verifier/.test(hotVerifierServiceText), "hot offer verifier must use a protected systemd state directory.");
+assert(/StateDirectoryMode=0700/.test(hotVerifierServiceText), "hot offer verifier state directory must remain private.");
+
 for (const file of listSourceFiles(["src/app", "src/lib"])) {
   if (!isPublicRuntimeFile(file)) continue;
   const text = read(file);

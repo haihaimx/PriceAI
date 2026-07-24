@@ -10,6 +10,7 @@ import {
   loadTargets,
   postCrawlLog,
   releaseCollectionLock,
+  restoreShopApiProxyReusePool,
   stableHashInt,
   stableOfferInputId,
   verifyShopApiOffer,
@@ -52,8 +53,12 @@ export async function runHotOfferVerification(options = {}) {
   const lockOwner = `${nodeId}:hot:${startedAt.replace(/\D/g, "").slice(0, 14)}`;
   const proxyPool = createShopApiProxyReusePool({
     shopApiProxyReuseLimit: options.proxyReuseLimit ?? 0,
-    shopApiProxyReuseTtlMs: options.proxyReuseTtlMs ?? 240_000,
+    shopApiProxyReuseTtlMs: options.proxyReuseTtlMs ?? 600_000,
+    shopApiProxyStatePath: options.proxyStatePath,
+    shopApiProxyMaxRuns: options.proxyMaxRuns ?? 2,
+    shopApiProxyLogger: console,
   });
+  await restoreShopApiProxyReusePool(proxyPool);
   const collectorOptions = {
     endpoint,
     password: options.password,

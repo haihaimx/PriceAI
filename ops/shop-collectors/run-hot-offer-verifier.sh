@@ -6,6 +6,8 @@ node_bin="${PRICEAI_NODE_BIN:-$runtime_root/node_modules/node/bin/node}"
 
 lock_dir="${RUNTIME_DIRECTORY:-/run/priceai-hot-offer-verifier}"
 mkdir -p "$lock_dir"
+state_dir="${STATE_DIRECTORY:-$runtime_root/spool/hot-offer-verifier}"
+mkdir -p "$state_dir"
 exec 9>"$lock_dir/verifier.lock"
 if ! flock -n 9; then
   echo "PriceAI hot offer verifier is already running; skipping this tick."
@@ -40,5 +42,7 @@ exec "$node_bin" scripts/verify-hot-offers.mjs \
   --request-delay-ms "${PRICEAI_HOT_VERIFY_REQUEST_DELAY_MS:-1500}" \
   --takeover-after-ms "${PRICEAI_HOT_VERIFY_TAKEOVER_AFTER_MS:-0}" \
   --proxy-reuse-limit 0 \
-  --proxy-reuse-ttl-ms "${PRICEAI_HOT_VERIFY_PROXY_REUSE_TTL_MS:-240000}" \
+  --proxy-reuse-ttl-ms "${PRICEAI_HOT_VERIFY_PROXY_REUSE_TTL_MS:-600000}" \
+  --proxy-state-path "${PRICEAI_HOT_VERIFY_PROXY_STATE_PATH:-$state_dir/proxy-leases.json}" \
+  --proxy-max-runs "${PRICEAI_HOT_VERIFY_PROXY_MAX_RUNS:-2}" \
   "$@"

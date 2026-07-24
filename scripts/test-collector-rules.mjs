@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 process.env.NEXT_PUBLIC_SUPABASE_URL ||= "https://example.supabase.co";
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= "collector-rules-test-key";
@@ -14,6 +17,8 @@ const {
   cooldownSkipReason,
   classifyShopCollectionScheduleTier,
   createShopApiProxyReusePool,
+  closeShopApiProxyReusePool,
+  discardShopApiProxyReuseForTarget,
   extractProxyLeaseFromPayload,
   isDailyProbeFailure,
   isWeeklyProbeFailure,
@@ -34,6 +39,8 @@ const {
   shopApiFeeModelFromChannelRate,
   shopApiProductLevelFeeModel,
   shopApiProxyParallelismFor,
+  shopApiProxyContextFromReusePool,
+  restoreShopApiProxyReusePool,
   shopApiStoredFeePolicy,
   shopCollectionSchedulerGroupMatches,
   shopCollectionScheduleReferenceAt,
@@ -203,6 +210,78 @@ assert.equal(
   isShopApiDirectExitBlockedForTarget({ sourceId: "yunmao", baseUrl: "https://catfk.com" }, proxyStateOptions),
   false,
 );
+
+{
+  const stateDirectory = mkdtempSync(join(tmpdir(), "priceai-proxy-state-"));
+  const statePath = join(stateDirectory, "proxy-leases.json");
+  const proxyUrl = "http://proxy-user:proxy-password@203.0.113.10:54103";
+  const logLines = [];
+  const logger = { log: (message) => logLines.push(String(message)) };
+  const poolOptions = {
+    shopApiProxyReuseLimit: 0,
+    shopApiProxyReuseTtlMs: 600_000,
+    shopApiProxyStatePath: statePath,
+    shopApiProxyMaxRuns: 2,
+    shopApiProxyLogger: logger,
+  };
+
+  try {
+    const firstPool = createShopApiProxyReusePool(poolOptions);
+    const acquired = await shopApiProxyContextFromReusePool("pay.ldxp.cn", {
+      shopApiProxyReusePool: firstPool,
+      shopApiProxyUrl: proxyUrl,
+      shopApiProxyLogger: logger,
+    });
+    assert.equal(acquired.shared, true);
+    assert.equal(existsSync(statePath), true);
+    assert.equal(statSync(statePath).mode & 0o777, 0o600);
+    assert.equal(JSON.parse(readFileSync(statePath, "utf8")).leases["pay.ldxp.cn"].usedRuns, 1);
+    await closeShopApiProxyReusePool(firstPool);
+
+    const secondPool = createShopApiProxyReusePool(poolOptions);
+    assert.equal(await restoreShopApiProxyReusePool(secondPool), 1);
+    assert.equal(JSON.parse(readFileSync(statePath, "utf8")).leases["pay.ldxp.cn"].usedRuns, 2);
+    assert.equal(secondPool.entries.has("pay.ldxp.cn"), true);
+    await closeShopApiProxyReusePool(secondPool);
+
+    const thirdPool = createShopApiProxyReusePool(poolOptions);
+    assert.equal(await restoreShopApiProxyReusePool(thirdPool), 0);
+    assert.equal(existsSync(statePath), false);
+    await closeShopApiProxyReusePool(thirdPool);
+
+    writeFileSync(statePath, JSON.stringify({
+      version: 1,
+      leases: {
+        "pay.ldxp.cn": { proxyUrl, expiresAt: Date.now() + 30_000, usedRuns: 1 },
+      },
+    }), { mode: 0o600 });
+    const expiredPool = createShopApiProxyReusePool(poolOptions);
+    assert.equal(await restoreShopApiProxyReusePool(expiredPool), 0);
+    assert.equal(existsSync(statePath), false);
+
+    writeFileSync(statePath, "{not-json", { mode: 0o600 });
+    const invalidPool = createShopApiProxyReusePool(poolOptions);
+    assert.equal(await restoreShopApiProxyReusePool(invalidPool), 0);
+    assert.equal(existsSync(statePath), false);
+
+    const discardPool = createShopApiProxyReusePool(poolOptions);
+    await shopApiProxyContextFromReusePool("pay.ldxp.cn", {
+      shopApiProxyReusePool: discardPool,
+      shopApiProxyUrl: proxyUrl,
+      shopApiProxyLogger: logger,
+    });
+    assert.equal(await discardShopApiProxyReuseForTarget(liandongTarget, {
+      shopApiProxyReusePool: discardPool,
+    }, { reason: "transport-error", logger }), true);
+    assert.equal(existsSync(statePath), false);
+    await closeShopApiProxyReusePool(discardPool);
+
+    assert.equal(logLines.some((line) => line.includes(proxyUrl)), false);
+    assert.equal(logLines.some((line) => line.includes("proxy-password")), false);
+  } finally {
+    rmSync(stateDirectory, { recursive: true, force: true });
+  }
+}
 
 const future = new Date(Date.now() + 60_000).toISOString();
 assert.equal(shopApiStoredFeePolicy([{ shop_token: "shop", rate: 0, sample_selection: "high_price_probe", expires_at: future }], "shop"), null);
