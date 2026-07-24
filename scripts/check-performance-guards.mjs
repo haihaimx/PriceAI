@@ -472,6 +472,10 @@ const hotVerifierServiceText = read("ops/shop-collectors/systemd/priceai-hot-off
 assert(/StateDirectory=priceai-hot-offer-verifier/.test(hotVerifierServiceText), "hot offer verifier must use a protected systemd state directory.");
 assert(/StateDirectoryMode=0700/.test(hotVerifierServiceText), "hot offer verifier state directory must remain private.");
 
+const hotVerifierEnvExampleText = read("ops/shop-collectors/hot-offer-verifier.env.example");
+assert(/PRICEAI_HOT_VERIFY_PROXY_REUSE_TTL_MS=600000/.test(hotVerifierEnvExampleText), "hot offer verifier env must preserve the ten-minute proxy lease TTL.");
+assert(/PRICEAI_HOT_VERIFY_PROXY_MAX_RUNS=2/.test(hotVerifierEnvExampleText), "hot offer verifier env must cap proxy leases at two runs.");
+
 for (const file of listSourceFiles(["src/app", "src/lib"])) {
   if (!isPublicRuntimeFile(file)) continue;
   const text = read(file);
