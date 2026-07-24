@@ -690,6 +690,7 @@ export {
   shopApiProxyParallelismFor,
   shopApiStoredFeePolicy,
   shopCollectionSchedulerGroupMatches,
+  shopCollectionScheduleReferenceAt,
   selectShopApiPreferredChannel,
   stableHashInt,
   stableOfferInputId,
@@ -4618,6 +4619,7 @@ function latestShopCollectionCrawlRunBySource(runs) {
   const latestGroups = new Map();
   for (const run of runs) {
     if (!run.sourceId) continue;
+    if (run.details?.hotVerification === true) continue;
     const observedAt = shopCollectionCrawlRunObservedAt(run);
     const current = latestGroups.get(run.sourceId);
     if (!current || observedAt > current.observedAt) {
@@ -4816,7 +4818,7 @@ function shopCollectionScheduleReferenceAt(target, latestRun, tier) {
   if (tier === "retry_priority" || tier === "retry_cooldown" || tier === "daily_probe" || tier === "weekly_probe") {
     return target.lastCheckedAt || latestRunAt || target.lastSuccessAt || null;
   }
-  return target.lastSuccessAt || latestRunAt || target.lastCheckedAt || null;
+  return latestRunAt || target.lastSuccessAt || target.lastCheckedAt || null;
 }
 
 function shopCollectionSchedulerOptionsFor(options = {}) {

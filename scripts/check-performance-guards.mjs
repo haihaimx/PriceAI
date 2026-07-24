@@ -137,6 +137,7 @@ assert(!/listPublicOffers/.test(channelsPageText), "src/app/channels/page.tsx: t
 const crawlLogRouteText = read("src/app/api/admin/crawl-log/route.ts");
 assert(/markPublicApiSnapshotsDirty/.test(crawlLogRouteText), "src/app/api/admin/crawl-log/route.ts: crawl-log writes must only mark public snapshots dirty.");
 assert(!/refreshPublicApiSnapshots/.test(crawlLogRouteText), "src/app/api/admin/crawl-log/route.ts: crawl-log writes must not synchronously refresh all public API snapshots.");
+assert(/payload\.details\?\.hotVerification === true[\s\S]{0,100}\? \{ changedOfferCount: 0 \}/.test(crawlLogRouteText), "src/app/api/admin/crawl-log/route.ts: hot verification writes must not refresh source-level full-store collection timestamps.");
 
 const adminText = read("src/lib/admin.ts");
 assert(/upsertRawOfferConfirmations/.test(adminText), "src/lib/admin.ts: unchanged offers must write lightweight confirmation rows instead of refreshing raw_offers.");
@@ -179,6 +180,7 @@ const collectPricesScriptText = read("scripts/collect-prices.mjs");
 assert(!/NEXT_PUBLIC_SUPABASE_ANON_KEY/.test(collectPricesScriptText), "scripts/collect-prices.mjs: collector Supabase client must not fall back to the public anon key.");
 assert(/function cronWriteHeaders/.test(collectPricesScriptText), "scripts/collect-prices.mjs: collector writeback must use shared cron auth headers.");
 assert(!/["']x-admin-password["']\s*:/.test(collectPricesScriptText), "scripts/collect-prices.mjs: collector writeback must not post with the legacy admin password header.");
+assert(/run\.details\?\.hotVerification === true\) continue/.test(collectPricesScriptText), "scripts/collect-prices.mjs: full-store scheduling must ignore hot verification crawl runs.");
 
 const publicApiSnapshotsMigrationText = read("supabase/migrations/20260624083000_public_api_snapshots.sql");
 assert(/create table if not exists public_api_snapshots/.test(publicApiSnapshotsMigrationText), "public API snapshots migration must create the snapshot table.");

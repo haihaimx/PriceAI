@@ -201,15 +201,17 @@ async function saveCrawlLogRun(
     const affectedOfferIds = changedByPayload ? offers.map(rawOfferInputId) : [];
     const affectedProductIds = changedByPayload ? offers.map(productIdFromCrawlOffer) : [];
 
-    const sourceCollectionResult = await recordSourceCollectionResult({
-      sourceId: source.id,
-      status: collectionStatus,
-      checkedAt: collectedAt,
-      message: payload.message || null,
-      seenOfferIds,
-      fullSnapshot,
-      hideMissingOffersImmediately,
-    });
+    const sourceCollectionResult = payload.details?.hotVerification === true
+      ? { changedOfferCount: 0 }
+      : await recordSourceCollectionResult({
+          sourceId: source.id,
+          status: collectionStatus,
+          checkedAt: collectedAt,
+          message: payload.message || null,
+          seenOfferIds,
+          fullSnapshot,
+          hideMissingOffersImmediately,
+        });
 
     const crawlRunRow = {
       id: runId,

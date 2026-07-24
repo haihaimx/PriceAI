@@ -36,6 +36,7 @@ const {
   shopApiProxyParallelismFor,
   shopApiStoredFeePolicy,
   shopCollectionSchedulerGroupMatches,
+  shopCollectionScheduleReferenceAt,
   selectShopApiPreferredChannel,
   selectBuiltinTargets,
 } = await import("./collect-prices.mjs");
@@ -394,6 +395,40 @@ assert.deepEqual(aggregatedRuns.get("ldxp-youzhi")?.details.writeStats, {
   writtenCount: 5,
   refreshedCount: 23,
 });
+
+const fullStoreFinishedAt = "2026-07-19T18:18:26.137Z";
+const hotVerificationFinishedAt = "2026-07-19T18:28:26.137Z";
+const fullStoreRunAfterHotVerification = latestShopCollectionCrawlRunBySource([
+  {
+    id: "full-store",
+    sourceId: "ldxp-youzhi",
+    status: "success",
+    startedAt: "2026-07-19T18:18:21.050Z",
+    finishedAt: fullStoreFinishedAt,
+    successCount: 81,
+    failureCount: 0,
+    details: { fullSnapshot: true },
+  },
+  {
+    id: "hot-verification",
+    sourceId: "ldxp-youzhi",
+    status: "success",
+    startedAt: "2026-07-19T18:28:21.050Z",
+    finishedAt: hotVerificationFinishedAt,
+    successCount: 8,
+    failureCount: 0,
+    details: { fullSnapshot: false, hotVerification: true },
+  },
+]);
+assert.equal(fullStoreRunAfterHotVerification.get("ldxp-youzhi")?.id, "full-store");
+assert.equal(
+  shopCollectionScheduleReferenceAt(
+    { lastSuccessAt: hotVerificationFinishedAt, lastCheckedAt: hotVerificationFinishedAt },
+    fullStoreRunAfterHotVerification.get("ldxp-youzhi"),
+    "vip_15m",
+  ),
+  fullStoreFinishedAt,
+);
 
 assert.equal(
   classifyShopCollectionScheduleTier({
