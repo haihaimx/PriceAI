@@ -693,6 +693,7 @@ export {
   shopApiFeeModelFromChannelRate,
   shopApiProxyParallelismFor,
   shopApiStoredFeePolicy,
+  shopCollectionScheduleTiming,
   shopCollectionSchedulerGroupMatches,
   shopCollectionScheduleReferenceAt,
   selectShopApiPreferredChannel,
@@ -4899,16 +4900,11 @@ function shopCollectionScheduleTiming({
   const bucketMatches = immediate || bucketCount <= 1 || positiveModulo(currentBucketNumber, bucketCount) === bucketIndex;
   const earliestMs = lastRunMs + intervalMs;
   const ageDue = nowMs >= earliestMs;
-  const due = ageDue && bucketMatches;
-  const nextWindowStart = due
-    ? nowMs
-    : nextShopCollectionScheduleBucketWindowStart({
-        fromMs: ageDue ? nowMs : earliestMs,
-        bucketMs,
-        bucketCount,
-        bucketIndex,
-      });
-  const nextRunMs = Math.max(earliestMs, nextWindowStart);
+  // Once the interval has elapsed, the next scheduler tick must be allowed to
+  // run. Requiring the stable bucket as well can miss a window by seconds and
+  // defer the source for another full interval (for example, 3h becoming 6h).
+  const due = ageDue;
+  const nextRunMs = due ? nowMs : earliestMs;
 
   return {
     due,
@@ -4918,18 +4914,6 @@ function shopCollectionScheduleTiming({
     bucketCount,
     bucketMatches,
   };
-}
-
-function nextShopCollectionScheduleBucketWindowStart({ fromMs, bucketMs, bucketCount, bucketIndex }) {
-  const firstBucketNumber = Math.floor(fromMs / bucketMs);
-  for (let offset = 0; offset <= bucketCount; offset += 1) {
-    const candidate = firstBucketNumber + offset;
-    const start = candidate * bucketMs;
-    const end = start + bucketMs;
-    if (fromMs >= end) continue;
-    if (bucketCount <= 1 || positiveModulo(candidate, bucketCount) === bucketIndex) return start;
-  }
-  return (firstBucketNumber + bucketCount) * bucketMs;
 }
 
 function buildShopCollectionScheduleTierStats(rows) {

@@ -42,6 +42,7 @@ const {
   shopApiProxyContextFromReusePool,
   restoreShopApiProxyReusePool,
   shopApiStoredFeePolicy,
+  shopCollectionScheduleTiming,
   shopCollectionSchedulerGroupMatches,
   shopCollectionScheduleReferenceAt,
   selectShopApiPreferredChannel,
@@ -318,6 +319,30 @@ assert.equal(shopCollectionSchedulerGroupMatches({ collectionGroup: "vip_15m" },
 assert.equal(shopCollectionSchedulerGroupMatches({ collectionGroup: "automatic" }, { "shop-scheduler-group": "vip_15m" }), false);
 assert.equal(shopCollectionSchedulerGroupMatches({ collectionGroup: "vip_15m" }, {}), false);
 assert.equal(shopCollectionSchedulerGroupMatches({ collectionGroup: "automatic" }, {}), true);
+
+const lowFrequencyLastRunMs = Date.parse("2026-07-25T00:07:50.886Z");
+const lowFrequencyBeforeDue = shopCollectionScheduleTiming({
+  sourceId: "catfk-hththt",
+  tier: "low_3h",
+  intervalMs: 180 * 60_000,
+  lastRunMs: lowFrequencyLastRunMs,
+  nowMs: Date.parse("2026-07-25T03:07:34.680Z"),
+  bucketMinutes: 30,
+});
+assert.equal(lowFrequencyBeforeDue.due, false);
+assert.equal(lowFrequencyBeforeDue.nextRunAt, "2026-07-25T03:07:50.886Z");
+
+const lowFrequencyNextTick = shopCollectionScheduleTiming({
+  sourceId: "catfk-hththt",
+  tier: "low_3h",
+  intervalMs: 180 * 60_000,
+  lastRunMs: lowFrequencyLastRunMs,
+  nowMs: Date.parse("2026-07-25T03:37:34.680Z"),
+  bucketMinutes: 30,
+});
+assert.equal(lowFrequencyNextTick.bucketMatches, false);
+assert.equal(lowFrequencyNextTick.due, true);
+assert.equal(lowFrequencyNextTick.remainingMinutes, 0);
 
 const emptyVipSchedule = await applyShopCollectionScheduler(
   [{ sourceId: "source-a", sourceName: "A", kind: "shopApi", baseUrl: "https://pay.ldxp.cn", collectionGroup: "automatic" }],
