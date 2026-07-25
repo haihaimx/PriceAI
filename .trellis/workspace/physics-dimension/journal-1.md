@@ -427,3 +427,36 @@ Supabase Preview 与生产 RPC 验证成功；Cloudflare Actions 29804093084 发
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: 统一登录中间页与 Google 网络提示
+
+**Date**: 2026-07-26
+**Task**: 统一登录中间页与 Google 网络提示
+**Branch**: `main`
+
+### Summary
+
+登录入口统一改为站内中间页，明确 Google 登录网络要求并使用官方多色 Google Logo。Cloudflare Actions 30166149833 完成 0% 候选烟测、100% promotion 与生产 smoke；/api/deployment versionTag=4cd74c5，生产 /login 200 且由 Cloudflare/OpenNext 提供，/account 未登录回到 /login?next=/account。无数据库 migration。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `65de0e4 4cd74c5` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
