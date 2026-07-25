@@ -205,6 +205,7 @@ function getTransitModelPriority(model: TransitModelPrice["standardModel"]): num
   if (model === "Grok 4.5") return 503;
   if (model === "Grok Build") return 502.5;
   if (model === "Composer 2.5") return 502;
+  if (model === "Claude Opus 5") return 511;
   if (model === "Claude Fable 5") return 510;
   if (model === "Claude Sonnet 5") return 500;
   if (model === "Claude Opus 4.8") return 408;
@@ -277,6 +278,16 @@ const TRANSIT_OFFICIAL_MODEL_PRICES: Record<
   TransitModelPrice["standardModel"],
   TransitOfficialModelPrice
 > = {
+  "Claude Opus 5": {
+    input: 5,
+    output: 25,
+    cacheWrite: 6.25,
+    cacheRead: 0.5,
+    imageOutput: null,
+    currency: "USD",
+    sourceLabel: "Anthropic API",
+    sourceUrl: anthropicPricingUrl,
+  },
   "Claude Fable 5": {
     input: 10,
     output: 50,

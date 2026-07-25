@@ -38,6 +38,7 @@ import {
 } from "../src/lib/api-transit";
 import {
   TRANSIT_DEFAULT_COMMERCIAL_OFFER_DISCLOSURE,
+  TRANSIT_STANDARD_MODELS,
   type TransitStation,
 } from "../src/data/api-transit/types";
 
@@ -51,7 +52,22 @@ assertEqual(getTransitFocusedFamilyFromReturnQuery("family=claude&model=Kimi%20K
 assertEqual(getTransitFocusedFamilyFromReturnQuery("family=unknown"), null);
 assertEqual(getTransitFocusedFamilyFromReturnQuery(["family=image", "family=video"]), "image");
 assertEqual(getTransitFocusedFamilyFromReturnQuery(null), null);
+assertEqual(TRANSIT_STANDARD_MODELS.includes("Claude Opus 5"), true);
+const emptyClaudeOpus5Summary = getTransitModelSummaries([], "claude")
+  .find((summary) => summary.standardModel === "Claude Opus 5");
+assertEqual(emptyClaudeOpus5Summary?.stationCount, 0);
+assertEqual(emptyClaudeOpus5Summary?.prices.length, 0);
 
+assertDeepEqual(getOfficialTransitModelPrice("Claude Opus 5"), {
+  input: 5,
+  output: 25,
+  cacheWrite: 6.25,
+  cacheRead: 0.5,
+  imageOutput: null,
+  currency: "USD",
+  sourceLabel: "Anthropic API",
+  sourceUrl: "https://platform.claude.com/docs/en/about-claude/pricing",
+});
 assertDeepEqual(getOfficialTransitModelPrice("Kimi K3"), {
   input: 20,
   output: 100,

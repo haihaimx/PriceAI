@@ -55,6 +55,7 @@ const AVAILABILITY_SOURCES = {
 };
 const STALE_UNKNOWN_AVAILABILITY_NOTE_PATTERN = /PriceAI API Key 探测|PriceAI 临时 Key|单轮准入抽样|近 7 日 .*样本成功/;
 const officialTransitPrices = {
+  "Claude Opus 5": { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25, imageOutput: null, currency: "USD" },
   "Claude Fable 5": { input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5, imageOutput: null, currency: "USD" },
   "Claude Sonnet 5": { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5, imageOutput: null, currency: "USD" },
   "Claude Sonnet 4.5": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75, imageOutput: null, currency: "USD" },
@@ -102,6 +103,7 @@ const officialTransitPrices = {
   "Kling 2.5 Turbo": { input: null, output: null, cacheRead: null, cacheWrite: null, imageOutput: null, currency: "USD" },
 };
 const modelFamilyByStandard = {
+  "Claude Opus 5": "claude",
   "Claude Fable 5": "claude",
   "Claude Sonnet 5": "claude",
   "Claude Sonnet 4.5": "claude",
@@ -3307,6 +3309,7 @@ function standardizeModelName(name) {
     return null;
   }
   if (value.includes("claude") && value.includes("opus")) {
+    if (hasExplicitModelVersion(value, "opus", "5")) return "Claude Opus 5";
     if (hasExplicitModelVersion(value, "opus", "4.8")) return "Claude Opus 4.8";
     if (hasExplicitModelVersion(value, "opus", "4.7")) return "Claude Opus 4.7";
     if (hasExplicitModelVersion(value, "opus", "4.6")) return "Claude Opus 4.6";

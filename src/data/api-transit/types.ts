@@ -104,6 +104,7 @@ export interface TransitMultiplierHistoryPoint {
 }
 
 export type TransitStandardModel =
+  | "Claude Opus 5"
   | "Claude Fable 5"
   | "Claude Sonnet 5"
   | "Claude Sonnet 4.5"
@@ -327,6 +328,7 @@ export const TRANSIT_INVOICE_SUPPORT_LABELS: Record<TransitInvoiceSupport, strin
 };
 
 export const TRANSIT_STANDARD_MODELS = [
+  "Claude Opus 5",
   "Claude Fable 5",
   "Claude Sonnet 5",
   "Claude Sonnet 4.5",
@@ -375,6 +377,7 @@ export const TRANSIT_STANDARD_MODELS = [
 ] as const satisfies readonly TransitStandardModel[];
 
 export const TRANSIT_STANDARD_MODEL_FAMILY: Record<TransitStandardModel, TransitModelFamily> = {
+  "Claude Opus 5": "claude",
   "Claude Fable 5": "claude",
   "Claude Sonnet 5": "claude",
   "Claude Sonnet 4.5": "claude",
@@ -423,6 +426,7 @@ export const TRANSIT_STANDARD_MODEL_FAMILY: Record<TransitStandardModel, Transit
 };
 
 export const TRANSIT_STANDARD_MODEL_MODALITY: Record<TransitStandardModel, TransitModelModality> = {
+  "Claude Opus 5": "text",
   "Claude Fable 5": "text",
   "Claude Sonnet 5": "text",
   "Claude Sonnet 4.5": "text",

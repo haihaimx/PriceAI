@@ -798,6 +798,10 @@ assert.equal(__test.standardizeModelName("anthropic/claude-fable-5"), "Claude Fa
 assert.equal(__test.standardizeModelName("Claude Fable 5"), "Claude Fable 5");
 assert.equal(__test.standardizeModelName("claude-fable-5-0"), "Claude Fable 5");
 assert.equal(__test.standardizeModelName("claude-haiku-4-5-20251001"), "Claude Haiku 4.5");
+assert.equal(__test.standardizeModelName("anthropic/claude-opus-5"), "Claude Opus 5");
+assert.equal(__test.standardizeModelName("claude-opus-5-20260724"), "Claude Opus 5");
+assert.equal(__test.standardizeModelName("claude-5-opus"), "Claude Opus 5");
+assert.equal(__test.standardizeModelName("claude-opus-50"), null);
 assert.equal(__test.standardizeModelName("claude-opus-4-5-20251101"), "Claude Opus 4.5");
 assert.equal(__test.standardizeModelName("claude-sonnet-4-5-20250929-thinking"), "Claude Sonnet 4.5");
 assert.equal(__test.standardizeModelName("openai/gpt-image-2"), "GPT Image 2");
