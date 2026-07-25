@@ -30,9 +30,7 @@ export function LoginPanel({
         href={buildGoogleAuthHref(next)}
         className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-full bg-[#2d3435] px-4 text-sm font-semibold text-[#f8f8f8] transition hover:bg-[#202829] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#45bf78]/55 focus-visible:ring-offset-2"
       >
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white" aria-hidden="true">
-          <Image src="/brand-icons/google.svg" alt="" width={18} height={18} className="h-[18px] w-[18px]" />
-        </span>
+        <Image src="/brand-icons/google.png" alt="" width={24} height={24} className="h-6 w-6 shrink-0" />
         使用 Google 继续
       </a>
 
