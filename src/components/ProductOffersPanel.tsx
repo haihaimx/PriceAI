@@ -7,7 +7,7 @@ import { CommunityPrompt } from "@/components/FeedbackLink";
 import { FeedbackEvidenceUploader } from "@/components/FeedbackEvidenceUploader";
 import { MobileFilterSheet } from "@/components/ComparisonUi";
 import { CollectorSourceLogo } from "@/components/MerchantCollectorSource";
-import { buildGoogleAuthHref } from "@/lib/auth-paths";
+import { buildLoginHref as buildAuthLoginHref } from "@/lib/auth-paths";
 import { useAccountUser } from "@/lib/account-client";
 import { canonicalCatalog, compareProductDisplayOrder, isAvailable, isSharedAccessOffer } from "@/lib/catalog";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -2420,7 +2420,7 @@ export function OfferFeedbackDialog({
   }
 
   function buildLoginHref() {
-    return buildGoogleAuthHref(buildFeedbackResumePath("offer", offer.id));
+    return buildAuthLoginHref(buildFeedbackResumePath("offer", offer.id));
   }
 
   function persistOfferDraft() {
@@ -2775,7 +2775,7 @@ export function MerchantFeedbackDialog({
   }
 
   function buildLoginHref() {
-    return buildGoogleAuthHref(buildFeedbackResumePath("merchant", merchant.id));
+    return buildAuthLoginHref(buildFeedbackResumePath("merchant", merchant.id));
   }
 
   function persistMerchantDraft() {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { CircleUserRound, UserRoundPlus } from "lucide-react";
 import type { AccountUser } from "@/lib/account-client";
-import { buildGoogleAuthHref, getBrowserAuthNextPath } from "@/lib/auth-paths";
+import { buildLoginHref, getBrowserAuthNextPath } from "@/lib/auth-paths";
 
 type HeaderActionLabelFrom = "sm" | "2xl" | "never";
 
@@ -75,10 +75,10 @@ export function AuthButton({
 
   if (!user) {
     return (
-      <a href={buildGoogleAuthHref(getBrowserAuthNextPath())} className={baseClassName} aria-label="登录 PriceAI">
+      <Link href={buildLoginHref(getBrowserAuthNextPath())} className={baseClassName} aria-label="登录 PriceAI" title="登录">
         <UserRoundPlus size={16} />
         <span className={labelClassName}>登录</span>
-      </a>
+      </Link>
     );
   }
 
