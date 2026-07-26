@@ -2,7 +2,7 @@ import type { CanonicalProduct, ProductGroup, RawOffer } from "./types";
 import { hasChatGptPlusRechargeOfficialDirectSignal, offerMatchesFilterTags } from "./offer-filter-tags";
 import { API_CDK_PLATFORM, isPublicCatalogProduct } from "./trust-risk";
 
-export const OFFER_CLASSIFICATION_VERSION = "2026-07-26.semantic-classification-v4";
+export const OFFER_CLASSIFICATION_VERSION = "2026-07-27.semantic-classification-v5";
 
 export const allPlatformOptions = [
   "ChatGPT",
@@ -122,26 +122,16 @@ export const canonicalCatalog: CanonicalProduct[] = [
     displayName: "ChatGPT Plus 正价代充",
     platform: "ChatGPT",
     productType: "订阅/会员",
-    spec: "官方地区价 · iOS 内购 · 直充/续费",
-    summary: "ChatGPT Plus 正价代充、官方地区价、App Store 内购、菲区卡充、美区 iOS、直充、代充或续费渠道。",
+    spec: "官方充值 · 正价/正规 · 真实付费",
+    summary: "明确标注官方、官网、正价、正规或真实付费的 ChatGPT Plus 充值渠道。普通 CDK、卡密和未知渠道充值归入试用订阅。",
     aliases: [
-      "ios土区",
-      "土区 ios",
-      "ios 土区",
-      "土耳其 plus",
-      "菲律宾 plus",
-      "菲区 plus",
-      "巴西 plus",
-      "埃及 plus",
-      "日区 plus",
-      "plus 土区",
-      "plus 充值代充",
-      "plus 代充",
-      "plus 直充",
-      "plus 卡冲",
       "plus 官方充值",
-      "plus 内购",
-      "月卡批发",
+      "plus 官方直充",
+      "plus 官方代充",
+      "plus 官网直充",
+      "plus 正价充值",
+      "plus 正规充值",
+      "plus 真实付费",
     ],
   },
   {
@@ -2769,18 +2759,7 @@ function isChatGptPlusRecharge(value: string): boolean {
   if (hasChatGptPlusAccountDeliverySignal(value)) return false;
   if (isChatGptPlusPixTrial(value)) return false;
 
-  const hasTurkeyRegionSignal = hasChatGptPlusTurkeyRegionSignal(value);
-  const hasRegionSignal = hasTurkeyRegionSignal || hasChatGptPlusRegionSignal(value);
-  const hasAppleBillingSignal = matches(value, ["ios", "app store", "appstore", "内购", "苹果内购"]);
-  const hasRechargeSignal = hasChatGptPlusRechargeSignal(value);
-
-  if (hasChatGptPlusRechargeOfficialDirectSignal(value)) return true;
-  if (hasRechargeSignal) return true;
-  if (hasTurkeyRegionSignal && matches(value, ["plus", "chatgpt", "gpt", "openai"])) return true;
-  if (hasRegionSignal && hasAppleBillingSignal && matches(value, ["plus", "chatgpt", "gpt", "openai"])) return true;
-  if (hasRegionSignal && hasRechargeSignal && matches(value, ["plus", "chatgpt", "gpt", "openai"])) return true;
-
-  return hasAppleBillingSignal && hasRechargeSignal && matches(value, ["plus", "chatgpt", "gpt", "openai"]);
+  return hasChatGptPlusRechargeOfficialDirectSignal(value);
 }
 
 function hasChatGptPlusAccountDeliverySignal(value: string): boolean {
@@ -2887,101 +2866,6 @@ function isChatGptPlusPixTrial(value: string): boolean {
   }
 
   return matches(value, ["巴西渠道"]) && matches(value, trialSignals);
-}
-
-function hasChatGptPlusTurkeyRegionSignal(value: string): boolean {
-  return matches(value, [
-    "ios土区",
-    "土区 ios",
-    "ios 土区",
-    "土耳其",
-    "土区",
-    "土耳其区",
-  ]);
-}
-
-function hasChatGptPlusRegionSignal(value: string): boolean {
-  return matches(value, [
-    "菲律宾",
-    "菲律宾区",
-    "菲区",
-    "非区",
-    "ph区",
-    "ph 区",
-    "巴西",
-    "巴西区",
-    "br区",
-    "br 区",
-    "埃及",
-    "埃及区",
-    "eg区",
-    "eg 区",
-    "巴基斯坦",
-    "巴基斯坦区",
-    "pk区",
-    "pk 区",
-    "加拿大",
-    "加拿大区",
-    "ca区",
-    "ca 区",
-    "日本",
-    "日本区",
-    "日区",
-    "jp区",
-    "jp 区",
-    "越南",
-    "越南区",
-    "vn区",
-    "vn 区",
-    "韩国",
-    "韩国区",
-    "kr区",
-    "kr 区",
-    "尼日利亚",
-    "尼区",
-    "ng区",
-    "ng 区",
-    "美区",
-    "美国区",
-    "us区",
-    "us 区",
-  ]);
-}
-
-function hasChatGptPlusRechargeSignal(value: string): boolean {
-  return matches(value, [
-    "充值",
-    "秒冲",
-    "代充",
-    "直充",
-    "直冲",
-    "续费",
-    "卡密",
-    "cdk",
-    "兑换码",
-    "自助卡密",
-    "卡冲",
-    "卡充",
-    "卡付",
-    "官方充值",
-    "官方直充",
-    "官网直冲",
-    "官方代充",
-    "官方订阅",
-    "正规充值",
-    "正规官方",
-    "正规卡付",
-    "正规卡冲",
-    "app store",
-    "appstore",
-    "内购",
-    "苹果内购",
-    "带账单",
-    "正规账单",
-    "充自己号",
-    "自己的账号",
-    "自备账号",
-  ]);
 }
 
 function isChatGptAccountTitle(value: string): boolean {
