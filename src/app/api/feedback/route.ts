@@ -147,7 +147,6 @@ export async function POST(request: Request) {
     const classifiedProduct = payload.reason === "wrong_category"
       ? classifyOffer(payload.sourceTitle || "", {
         tags: payload.offerTags || [],
-        price: payload.offerPrice ?? null,
       })
       : null;
     const expectedProduct = payload.expectedProductId

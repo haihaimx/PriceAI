@@ -2,7 +2,7 @@ import type { CanonicalProduct, ProductGroup, RawOffer } from "./types";
 import { hasChatGptPlusRechargeOfficialDirectSignal, offerMatchesFilterTags } from "./offer-filter-tags";
 import { API_CDK_PLATFORM, isPublicCatalogProduct } from "./trust-risk";
 
-export const OFFER_CLASSIFICATION_VERSION = "2026-07-22.chatgpt-plus-delivery-v3";
+export const OFFER_CLASSIFICATION_VERSION = "2026-07-26.semantic-classification-v4";
 
 export const allPlatformOptions = [
   "ChatGPT",
@@ -609,20 +609,7 @@ const legacyCanonicalIdMap: Record<string, string> = {
 type OfferClassificationContext = {
   tags?: string[] | string | null;
   categorySlug?: string | null;
-  price?: number | null;
 };
-
-const priceFloorByProductId = new Map<string, number>([
-  ["chatgpt-plus-recharge", 50],
-  ["chatgpt-pro-5x", 100],
-  ["chatgpt-pro-20x", 100],
-  ["claude-pro-month", 40],
-  ["claude-team-standard", 100],
-  ["claude-team-premium", 100],
-  ["claude-max-5x", 100],
-  ["claude-max-20x", 200],
-  ["gemini-ultra", 50],
-]);
 
 export function getCanonicalProduct(id: string): CanonicalProduct {
   return catalogById.get(legacyCanonicalIdMap[id] || id) ?? catalogById.get("other-product")!;
@@ -658,12 +645,10 @@ export function resolveOfferProduct(
 ): CanonicalProduct {
   const canonicalMap = new Map(canonicalProducts.map((product) => [product.id, product]));
   const context = { tags: offer.tags, categorySlug: offer.categorySlug };
-  const titleClassified = classifyOfferByTitle(offer.sourceTitle, context);
-  const classified = applyPriceFloor(titleClassified, offer.price, offer.sourceTitle);
+  const classified = classifyOfferByTitle(offer.sourceTitle, context);
   const mappedId = offer.canonicalProductId ? legacyCanonicalIdMap[offer.canonicalProductId] || offer.canonicalProductId : null;
 
   if (classified.id !== "other-product") return classified;
-  if (titleClassified.id !== "other-product") return classified;
   if (shouldBlockStoredProductFallback(offer.sourceTitle)) return classified;
   if (mappedId && catalogById.has(mappedId)) return getCanonicalProduct(mappedId);
   if (mappedId && canonicalMap.has(mappedId)) return canonicalMap.get(mappedId)!;
@@ -675,7 +660,7 @@ export function classifyOffer(
   title: string,
   context: OfferClassificationContext = {},
 ): CanonicalProduct {
-  return applyPriceFloor(classifyOfferByTitle(title, context), context.price, title);
+  return classifyOfferByTitle(title, context);
 }
 
 function classifyOfferByTitle(
@@ -684,6 +669,10 @@ function classifyOfferByTitle(
 ): CanonicalProduct {
   const value = normalizeTitle(title);
   const contextValue = normalizeTitle([normalizeTags(context.tags), context.categorySlug].filter(Boolean).join(" "));
+
+  if (isPriceAdjustmentListing(value)) {
+    return getCanonicalProduct("other-product");
+  }
 
   if (isCodexPhoneVerification(value)) {
     return getCanonicalProduct("openai-phone-verification");
@@ -919,31 +908,10 @@ function classifyOfferByTitle(
   return getCanonicalProduct("other-product");
 }
 
-function applyPriceFloor(
-  product: CanonicalProduct,
-  price: number | null | undefined,
-  title?: string,
-): CanonicalProduct {
-  const floor = priceFloorByProductId.get(product.id);
-  if (floor === undefined) return product;
-  if (typeof price !== "number" || !Number.isFinite(price)) return product;
-
-  if (price >= floor) return product;
-  if (product.id === "chatgpt-plus-recharge" && title) {
-    const value = normalizeTitle(title);
-    const hasOfficialOrRegionalBillingPath =
-      hasChatGptPlusRechargeOfficialDirectSignal(value) ||
-      hasChatGptPlusTurkeyRegionSignal(value) ||
-      (hasChatGptPlusRegionSignal(value) && matches(value, ["ios", "app store", "appstore", "内购", "苹果内购"]));
-    if (!hasOfficialOrRegionalBillingPath) return getCanonicalProduct("chatgpt-plus");
-  }
-  return getCanonicalProduct("other-product");
-}
-
 function shouldBlockStoredProductFallback(title: string): boolean {
   const value = normalizeTitle(title);
 
-  return isMixedChatGptProTier(value) || isTelegramLanguagePack(value);
+  return isMixedChatGptProTier(value) || isTelegramLanguagePack(value) || isPriceAdjustmentListing(value);
 }
 
 export function buildProductGroups(
@@ -1206,6 +1174,37 @@ function isSupportService(value: string): boolean {
   }
 
   return false;
+}
+
+function isPriceAdjustmentListing(value: string): boolean {
+  if (matches(value, ["定金", "订金", "占位价", "占位链接", "改价专用", "拍下改价"])) {
+    return true;
+  }
+
+  if (matches(value, [
+    "无需补差价",
+    "无须补差价",
+    "不需补差价",
+    "不需要补差价",
+    "不用补差价",
+    "无需补差",
+    "无需补款",
+    "无须补款",
+    "不需补款",
+    "不需要补款",
+    "不用补款",
+  ])) {
+    return false;
+  }
+
+  return matches(value, [
+    "补差价",
+    "补差链接",
+    "差价链接",
+    "补款",
+    "补款链接",
+    "补拍",
+  ]);
 }
 
 function hasNegatedTutorialMention(value: string): boolean {
@@ -2427,6 +2426,7 @@ function isGeminiUltraProduct(value: string): boolean {
   if (isGeminiProUltraMixedTitle(value)) return false;
   if (matches(value, ["google ai ultra", "gemini ultra", "ai ultra", "企业 ultra", "企业ultra"])) return true;
   if (matches(value, ["250美元", "250 美元", "250美金", "250 美金", "250刀", "45k", "25k"]) && matches(value, ["gemini", "google ai", "ultra", "flow"])) return true;
+  if (matches(value, ["gemini pro", "google ai pro", "ai pro", "pro 12个月", "pro12个月"])) return false;
 
   return matches(value, ["flow"]) && matches(value, ["gemini", "google ai", "ultra"]);
 }

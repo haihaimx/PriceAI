@@ -891,7 +891,6 @@ function productIdFromRawOfferScopeRow(row: Record<string, unknown>): string | n
   const tags = Array.isArray(row.tags) ? row.tags.map(String) : [];
   return classifyOffer(String(row.source_title || ""), {
     tags,
-    price: typeof row.price === "number" ? row.price : null,
   }).id;
 }
 
@@ -3816,7 +3815,7 @@ function buildSampleFrontRankOfferCounts(offers: RawOffer[]): Map<string, number
     const productId =
       offer.canonicalProductId ||
       offer.storedCanonicalProductId ||
-      classifyOffer(offer.sourceTitle, { tags: offer.tags, price: offer.price }).id;
+      classifyOffer(offer.sourceTitle, { tags: offer.tags }).id;
     const rows = byProduct.get(productId) || [];
     rows.push(offer);
     byProduct.set(productId, rows);
@@ -6888,7 +6887,6 @@ export function mapRawOffer(row: Record<string, unknown>): RawOffer {
   const classified = classifyOffer(sourceTitle, {
     tags,
     categorySlug: storedCategorySlug,
-    price,
   });
   const filterTags = deriveOfferFilterTags({ sourceTitle, tags });
 

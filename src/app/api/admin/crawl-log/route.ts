@@ -902,7 +902,6 @@ function supabaseErrorMessage(error: unknown): string {
 function productIdFromCrawlOffer(offer: z.infer<typeof offerSchema>): string {
   return classifyOffer(offer.sourceTitle, {
     tags: offer.tags || [],
-    price: offer.price ?? null,
   }).id;
 }
 

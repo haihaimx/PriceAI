@@ -5213,9 +5213,7 @@ function OfferFeedbackList({
         const updatedAt = matchedOffer ? offerTimestamp(matchedOffer) : snapshotUpdatedAt;
         const ruleProduct = sourceTitle
           ? productByKey.get(
-              classifyOffer(sourceTitle, {
-                price: matchedOffer?.price ?? item.offerPrice ?? undefined,
-              }).id,
+              classifyOffer(sourceTitle).id,
             )
           : null;
         const displayProduct = ruleProduct || currentProduct || matchedProduct;

@@ -90,6 +90,12 @@ const cases = [
   ["Pro 20×正规卡充【带账单】", "chatgpt-pro-20x"],
   ["chatGPT PRO 200美金档 代充 人工交付", "chatgpt-pro-20x"],
   ["ChatGPT Pro 20x无任何质保 库存号 质保首登 额度包补", "chatgpt-pro-20x"],
+  ["GPT Pro代充一个月 200$(正规冲整月质保 1150RMB 下单后补差价找客服发送订单正规卡冲)", "other-product"],
+  ["GPT Plus 正规充值定金，下单后联系客服", "other-product"],
+  ["Claude Max 20x 补款链接", "other-product"],
+  ["Google AI Ultra 占位价", "other-product"],
+  ["Claude注册 实体手机号接码（codex接码15，下单后补款即可）", "other-product"],
+  ["ChatGPT Plus 官方直充 无需补差价", "chatgpt-plus-recharge"],
   ["ChatGPT Pro 5倍 官方充值", "chatgpt-pro-5x"],
   ["PRO 5× 充值卡密(iOS美区质保)", "chatgpt-pro-5x"],
   ["ChatGPT Pro 100 美金 成品号/账号代充", "chatgpt-pro-5x"],
@@ -337,42 +343,49 @@ for (const [title, context, expected] of contextCases) {
   assert.equal(classifyOffer(title, context).id, expected, `${title} should classify as ${expected}`);
 }
 
-const priceCases = [
-  ["GPT PRO 特价代充 5x", 99, "other-product"],
-  ["GPT PRO 特价代充 5x", 100, "chatgpt-pro-5x"],
-  ["ChatGPT Pro 20x 官方充值", 99, "other-product"],
-  ["ChatGPT Pro 20x 官方充值", 100, "chatgpt-pro-20x"],
-  ["Claude Max 5X直充月卡", 99, "other-product"],
-  ["Claude Max 5X直充月卡", 100, "claude-max-5x"],
-  ["Claude Max 20X 成品号", 199, "other-product"],
-  ["Claude Max 20X 成品号", 200, "claude-max-20x"],
-  ["Claude Team 1.25x 30天质保订阅", 99, "other-product"],
-  ["Claude Team 1.25x 30天质保订阅", 100, "claude-team-standard"],
-  ["Claude Team 6.25x 30天质保订阅", 99, "other-product"],
-  ["Claude Team 6.25x 30天质保订阅", 100, "claude-team-premium"],
-  ["Google AI Ultra 250美元 Flow 积分", 49, "other-product"],
-  ["Google AI Ultra 250美元 Flow 积分", 50, "gemini-ultra"],
-  ["ChatGPT自助卡密（ios土区）", 49, "other-product"],
-  ["ChatGPT自助卡密（ios土区）", 50, "chatgpt-plus-recharge"],
-  ["【质保-菲区卡冲】GPT Plus官方直充月卡【可开发票】", 49, "other-product"],
-  ["【质保-菲区卡冲】GPT Plus官方直充月卡【可开发票】", 50, "chatgpt-plus-recharge"],
-  ["GPT Plus 一个月会员 -卡密自助 Pix渠道【仅支持新号或老号有试用】【无质保】【巴西老哥人工充值】", 5, "chatgpt-plus"],
-  ["Claude Pro 月卡 直充", 39, "other-product"],
-  ["Claude Pro 月卡 直充", 40, "claude-pro-month"],
-  ["ChatGPT Plus 直充 卡密自助", 3, "chatgpt-plus"],
-  ["GPT PLUS镜像站(天卡)", 3, "chatgpt-plus"],
-  ["GPT Team成品 rt子号 | 质保首次登录 发json cpa格式", 0.3, "chatgpt-team-business"],
-  ["Gemini Pro 一年 12个月", 1, "gemini-pro-year"],
-  ["Super Grok 成品号-3天（质保）-带sso", 1, "super-grok"],
+const priceInvariantCases = [
+  ["GPT PRO 特价代充 5x", "chatgpt-pro-5x"],
+  ["ChatGPT Pro 20x 官方充值", "chatgpt-pro-20x"],
+  ["Claude Max 5X直充月卡", "claude-max-5x"],
+  ["Claude Max 20X 成品号", "claude-max-20x"],
+  ["Claude Team 1.25x 30天质保订阅", "claude-team-standard"],
+  ["Claude Team 6.25x 30天质保订阅", "claude-team-premium"],
+  ["Google AI Ultra 250美元 Flow 积分", "gemini-ultra"],
+  ["ChatGPT自助卡密（ios土区）", "chatgpt-plus-recharge"],
+  ["【质保-菲区卡冲】GPT Plus官方直充月卡【可开发票】", "chatgpt-plus-recharge"],
+  ["GPT Plus 一个月会员 -卡密自助 Pix渠道【仅支持新号或老号有试用】【无质保】【巴西老哥人工充值】", "chatgpt-plus"],
+  ["Claude Pro 月卡 直充", "claude-pro-month"],
+  ["ChatGPT Plus 直充 卡密自助", "chatgpt-plus-recharge"],
+  ["GPT PLUS镜像站(天卡)", "chatgpt-plus"],
+  ["GPT Team成品 rt子号 | 质保首次登录 发json cpa格式", "chatgpt-team-business"],
+  ["Gemini Pro 一年 12个月", "gemini-pro-year"],
+  ["Gemini Pro 12个月成品号 包能用Flow", "gemini-pro-year"],
+  ["Super Grok 成品号-3天（质保）-带sso", "super-grok"],
 ];
 
-for (const [title, price, expected] of priceCases) {
-  assert.equal(
-    classifyOffer(title, { price }).id,
-    expected,
-    `${title} at ¥${price} should classify as ${expected}`,
-  );
+for (const [title, expected] of priceInvariantCases) {
+  for (const price of [1, 50, 500]) {
+    assert.equal(
+      classifyOffer(title, { price }).id,
+      expected,
+      `${title} at ¥${price} should classify as ${expected}`,
+    );
+  }
 }
+
+const adjustmentGroups = buildProductGroups([
+  makeOffer({
+    id: "stored-pro-adjustment",
+    title: "GPT Pro 20x 下单后补差价找客服",
+    price: 10,
+    status: "in_stock",
+    canonicalProductId: "chatgpt-pro-20x",
+  }),
+]);
+assert.ok(
+  adjustmentGroups.find((group) => group.id === "other-product")?.offers.some((offer) => offer.id === "stored-pro-adjustment"),
+  "Price-adjustment listings must not fall back to a stored product classification.",
+);
 
 const groups = buildProductGroups([
   makeOffer({ id: "available", title: "ChatGPT Plus 月卡", price: 100, status: "in_stock" }),
@@ -1056,17 +1069,18 @@ assert.equal(pro20Group.lowestOffer, null, "All out-of-stock products should not
 assert.equal(pro20Group.lowestPrice, null, "All out-of-stock products should not expose a lowest price.");
 assert.equal(pro20Group.lowestPriceLabel, "暂无有货价", "All out-of-stock products should use the no-available-price label.");
 
-const priceFloorGroups = buildProductGroups([
-  makeOffer({ id: "too-cheap-pro", title: "ChatGPT Pro 20x 官方充值", price: 99, status: "in_stock" }),
-  makeOffer({ id: "valid-pro", title: "ChatGPT Pro 20x 官方充值", price: 200, status: "in_stock" }),
+const priceIndependentGroups = buildProductGroups([
+  makeOffer({ id: "low-price-pro", title: "ChatGPT Pro 20x 官方充值", price: 1, status: "in_stock" }),
+  makeOffer({ id: "high-price-pro", title: "ChatGPT Pro 20x 官方充值", price: 500, status: "in_stock" }),
 ]);
 assert.ok(
-  priceFloorGroups.find((group) => group.id === "other-product")?.offers.some((offer) => offer.id === "too-cheap-pro"),
-  "Price-floor-blocked offers should remain in Other instead of falling back to stored product ids.",
+  priceIndependentGroups.find((group) => group.id === "chatgpt-pro-20x")?.offers.some((offer) => offer.id === "low-price-pro"),
+  "Low prices must not move normal product listings into Other.",
 );
-assert.ok(
-  priceFloorGroups.find((group) => group.id === "chatgpt-pro-20x")?.offers.some((offer) => offer.id === "valid-pro"),
-  "Offers at the floor should stay in the target product.",
+assert.equal(
+  priceIndependentGroups.find((group) => group.id === "chatgpt-pro-20x")?.lowestOffer?.id,
+  "low-price-pro",
+  "Price-independent classification should preserve normal price ordering within the product.",
 );
 
 const mixedTierGroups = buildProductGroups([
@@ -1172,7 +1186,7 @@ assert.ok(
   "API/CDK should stay hidden from the public catalog.",
 );
 
-console.log(`catalog test passed cases=${cases.length + contextCases.length + priceCases.length}`);
+console.log(`catalog test passed cases=${cases.length + contextCases.length + priceInvariantCases.length}`);
 
 function makeOffer({
   id,

@@ -549,7 +549,7 @@ export async function upsertRawOffer(input: OfferInput & { sourceId?: string | n
   const tags = parseTags(input.tags || "");
   const status = normalizeStatus(input.status || "");
   const trustFields = freshnessFields({ method: "manual", status, verifiedAt: now });
-  const canonical = classifyOffer(input.sourceTitle, { tags, price: input.price ?? null });
+  const canonical = classifyOffer(input.sourceTitle, { tags });
   const existingManualHidden = await getManualHiddenOffer(rawOfferInputId(input));
   const offer: RawOffer = {
     id: rawOfferInputId(input),
@@ -626,7 +626,7 @@ export async function upsertRawOffers(
     };
     const status = normalizeStatus(offer.status || "");
     const tags = parseTags(offer.tags || "");
-    const canonical = classifyOffer(offer.sourceTitle, { tags, price: offer.price ?? null });
+    const canonical = classifyOffer(offer.sourceTitle, { tags });
     const trustFields = freshnessFields({ method: collectionMethod, status, verifiedAt: checkedAt });
     const explicitEffectiveStatus = normalizeEffectiveStatus(offer.effectiveStatus || null);
     const effectiveStatus = explicitEffectiveStatus || trustFields.effective_status;
@@ -3963,7 +3963,7 @@ async function listSubmissionPriceBenchmarks(
   probe: ReviewSubmissionProbeResult,
 ): Promise<Map<string, SubmissionPriceBenchmark>> {
   const productIds = Array.from(new Set((probe.offers || [])
-    .map((offer) => classifyOffer(offer.sourceTitle, { tags: offer.tags, price: offer.price }).id)
+    .map((offer) => classifyOffer(offer.sourceTitle, { tags: offer.tags }).id)
     .filter((id) => id !== "other-product")));
   if (!productIds.length) return new Map();
 
