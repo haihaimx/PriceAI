@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 13
-- **Last Active**: 2026-07-26
+- **Total Sessions**: 14
+- **Last Active**: 2026-07-27
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~462 | Active |
+| `journal-1.md` | ~496 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | 日期 | 标题 | 提交数 | 分支 |
 |---|------|-------|---------|--------|
+| 14 | 2026-07-27 | 取消目录分类底价并收紧 Plus 正价代充 | `673b582`, `91d6fcf` | `main` |
 | 13 | 2026-07-26 | 统一登录中间页与 Google 网络提示 | `65de0e4` `4cd74c5` | `main` |
 | 12 | 2026-07-24 | 修复 API 中转监测过期数据误导 | `2762922`, `2e27082`, `8e3def8` | `main` |
 | 11 | 2026-07-24 | 发布首页购买路径卡片对齐修复 | `3822747` | `main` |

@@ -460,3 +460,37 @@ Supabase Preview 与生产 RPC 验证成功；Cloudflare Actions 29804093084 发
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: 取消目录分类底价并收紧 Plus 正价代充
+
+**Date**: 2026-07-27
+**Task**: 取消目录分类底价并收紧 Plus 正价代充
+**Branch**: `main`
+
+### Summary
+
+移除 9 条价格底线，异常补款归入其他商品；普通充值、CDK、卡密和渠道报价归入 ChatGPT Plus 试用订阅，仅明确官方、官网、正价、正规或真实付费的报价进入正价代充。Cloudflare Actions 30210837811 发布成功，生产重分类更新 1155 条，目录审计待重分类为 0，www 默认正价代充接口 total=85，前五为 110/115/118/120/120.75 元。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `673b582` | (see git log) |
+| `91d6fcf` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
