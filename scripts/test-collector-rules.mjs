@@ -139,6 +139,8 @@ assert.deepEqual(normalizeLdxpRuntimeSettings(null), {
 assert.equal(normalizeLdxpRuntimeSettings({ mode: "pay", activeHost: "www.ldxp.cn" }).activeHost, "pay.ldxp.cn");
 assert.equal(alternateLdxpHost("www.ldxp.cn"), "pay.ldxp.cn");
 assert.equal(alternateLdxpHost("pay.ldxp.cn"), "www.ldxp.cn");
+assert.equal(rewriteLdxpUrlHost("https://pay.ldxp.cn", "www.ldxp.cn"), "https://www.ldxp.cn");
+assert.equal(rewriteLdxpUrlHost("https://pay.ldxp.cn/", "www.ldxp.cn"), "https://www.ldxp.cn");
 assert.equal(
   rewriteLdxpUrlHost("https://pay.ldxp.cn/item/abc123?channel=9#buy", "www.ldxp.cn"),
   "https://www.ldxp.cn/item/abc123?channel=9#buy",

@@ -3001,6 +3001,7 @@ function rewriteLdxpUrlHost(value, host) {
     url.protocol = "https:";
     url.hostname = host;
     url.port = "";
+    if (url.pathname === "/" && !url.search && !url.hash) return url.origin;
     return url.toString();
   } catch {
     return value;
