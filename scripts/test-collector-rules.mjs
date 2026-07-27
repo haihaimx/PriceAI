@@ -18,6 +18,7 @@ const {
   classifyShopCollectionScheduleTier,
   createShopApiProxyReusePool,
   closeShopApiProxyReusePool,
+  createShopApiVisitorId,
   discardShopApiProxyReuseForTarget,
   extractProxyLeaseFromPayload,
   isDailyProbeFailure,
@@ -130,6 +131,10 @@ assert.equal(isShopApiProxyTransportErrorMessage("fetch failed: ECONNRESET: sock
 assert.equal(isShopApiProxyTransportErrorMessage("fetch failed: UND_ERR_CONNECT_TIMEOUT"), true);
 assert.equal(isShopApiProxyTransportErrorMessage("fetch failed"), false);
 assert.equal(isShopApiProxyTransportErrorMessage("Shop info unavailable for token shop"), false);
+const shopApiVisitorIds = Array.from({ length: 8 }, () => createShopApiVisitorId());
+assert.equal(new Set(shopApiVisitorIds).size, shopApiVisitorIds.length);
+assert.equal(shopApiVisitorIds.every((value) => /^[a-f0-9]{24}$/.test(value)), true);
+assert.equal(shopApiVisitorIds.some((value) => value.startsWith("probe")), false);
 assert.deepEqual(normalizeLdxpRuntimeSettings(null), {
   mode: "auto",
   activeHost: "www.ldxp.cn",

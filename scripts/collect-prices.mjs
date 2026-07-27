@@ -662,6 +662,7 @@ export {
   collectorHeartbeatForWritebackFailure,
   cooldownSkipReason,
   createShopApiProxyReusePool,
+  createShopApiVisitorId,
   closeShopApiProxyReusePool,
   discardShopApiProxyReuseForTarget,
   collectTargetWithRetries,
@@ -5693,7 +5694,7 @@ async function postJson(url, body, referer, requestOptions = null) {
       ...defaultHeaders(referer || url),
       "content-type": "application/json",
       accept: "application/json, text/plain, */*",
-      visitorid: `probe${Math.random().toString(36).slice(2, 10)}`,
+      visitorid: createShopApiVisitorId(),
       referer: referer || url,
     },
     body: JSON.stringify(body),
@@ -5724,6 +5725,10 @@ function defaultHeaders(url) {
     referer: deriveBaseUrl(url) || url,
     "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
   };
+}
+
+function createShopApiVisitorId() {
+  return crypto.randomBytes(12).toString("hex");
 }
 
 async function createShopApiProxyContext(target, options = {}) {
