@@ -494,3 +494,36 @@ Supabase Preview 与生产 RPC 验证成功；Cloudflare Actions 29804093084 发
 ### Next Steps
 
 - None - task complete
+
+
+## Session 15: Fix DragonAPI pricing and monitoring evidence
+
+**Date**: 2026-07-28
+**Task**: Fix DragonAPI pricing and monitoring evidence
+**Branch**: `main`
+
+### Summary
+
+修正 New API 缺失分组倍率被伪造为 1x，以及零样本套餐记录遮蔽模型级公开监测；生产回读 39 条有效报价、0 条错误分组，页面展示同模型参考，Cloudflare Actions 30360213760 与 Huoshan2 manifest 验证通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ac6bb6632637d556403ca93f5cf72df56570e26c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
