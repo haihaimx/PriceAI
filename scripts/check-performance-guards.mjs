@@ -134,6 +134,13 @@ assert(/"binding"\s*:\s*"PRICE_RADAR_BUCKET"/.test(wranglerText), "wrangler.json
 const channelsPageText = read("src/app/channels/page.tsx");
 assert(!/listPublicOffers/.test(channelsPageText), "src/app/channels/page.tsx: the default product view must not prefetch the expensive all-offers list.");
 
+const middlewareText = read("src/middleware.ts");
+assert(!/staleDeploymentCssResponse/.test(middlewareText), "src/middleware.ts: deployment-skewed CSS must fail visibly so the client can recover instead of accepting an empty stylesheet.");
+assert(/www\.priceai\.cc/.test(middlewareText) && /\(\?!_next\/static/.test(middlewareText), "src/middleware.ts: canonical www redirects must cover public pages while excluding static assets.");
+
+const chunkRecoveryText = read("src/lib/chunk-load-recovery.ts");
+assert(/static\\\/\(\?:chunks\|css\)/.test(chunkRecoveryText), "src/lib/chunk-load-recovery.ts: both stale JavaScript and CSS deployment assets must trigger guarded recovery.");
+
 const crawlLogRouteText = read("src/app/api/admin/crawl-log/route.ts");
 assert(/markPublicApiSnapshotsDirty/.test(crawlLogRouteText), "src/app/api/admin/crawl-log/route.ts: crawl-log writes must only mark public snapshots dirty.");
 assert(!/refreshPublicApiSnapshots/.test(crawlLogRouteText), "src/app/api/admin/crawl-log/route.ts: crawl-log writes must not synchronously refresh all public API snapshots.");
