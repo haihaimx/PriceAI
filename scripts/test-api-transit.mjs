@@ -272,6 +272,53 @@ assert.ok(
   configuredUmapisSource.adminNote.includes("充值倍率"),
   "悠米AI中转后台备注必须列出正式上架前需要补充的充值倍率。",
 );
+const configuredDragonapiSource = transitSourceConfig.find((source) => source.id === "newapi-dragon3api-com");
+assert.ok(configuredDragonapiSource, "DragonAPI must stay saved as an API transit draft source.");
+assert.equal(configuredDragonapiSource.name, "DragonAPI");
+assert.equal(configuredDragonapiSource.collectorKind, "new_api_pricing");
+assert.equal(configuredDragonapiSource.stationSystem, "new_api");
+assert.equal(configuredDragonapiSource.websiteUrl, "https://newapi.dragon3api.com/");
+assert.equal(configuredDragonapiSource.apiBaseUrl, "https://newapi.dragon3api.com/v1");
+assert.equal(configuredDragonapiSource.pricingUrl, "https://newapi.dragon3api.com/pricing");
+assert.equal(configuredDragonapiSource.pricingEndpointUrl, "https://newapi.dragon3api.com/api/pricing");
+assert.equal(configuredDragonapiSource.monitorUrl, "https://newapi.dragon3api.com/status");
+assert.equal(
+  configuredDragonapiSource.monitorEndpointUrl,
+  "https://newapi.dragon3api.com/api/perf-metrics/summary?period=24",
+);
+assert.equal(configuredDragonapiSource.rechargeRatio, "1:1");
+assert.equal(configuredDragonapiSource.autoPublish, false);
+assert.equal(configuredDragonapiSource.commercialRelation, "none");
+assert.equal(configuredDragonapiSource.operatorType, "company");
+assert.equal(configuredDragonapiSource.invoiceSupport, "supported");
+assert.equal(configuredDragonapiSource.refundPolicy, "可退余额，需联系客服处理。");
+assert.ok(
+  configuredDragonapiSource.adminNote.includes("Codex 0.045") &&
+    configuredDragonapiSource.adminNote.includes("CCMax 0.75"),
+  "DragonAPI 后台备注必须保留站长提交的主流模型倍率。",
+);
+assert.ok(
+  configuredDragonapiSource.adminNote.includes("gpt-特惠 当前为 0.05") &&
+    configuredDragonapiSource.adminNote.includes("claude max 号池为 0.85"),
+  "DragonAPI 后台备注必须保留公开价格与站长提交口径的差异。",
+);
+assert.ok(
+  configuredDragonapiSource.adminNote.includes("autoPublish=false"),
+  "DragonAPI 后台备注必须明确保持待审核草稿，不自动上前台。",
+);
+
+const scheduledPublishedDragonapiSources = __test.selectSources(
+  __test.filterSourcesByPublishedStationIds(
+    transitSourceConfig,
+    new Set(["newapi-dragon3api-com"]),
+  ),
+  { post: true },
+);
+assert.deepEqual(
+  scheduledPublishedDragonapiSources.map((source) => source.id),
+  ["newapi-dragon3api-com"],
+  "DragonAPI must be eligible for scheduled pricing and monitoring refresh once published.",
+);
 
 const scheduledPublishedRtocSources = __test.selectSources(
   __test.filterSourcesByPublishedStationIds(transitSourceConfig, new Set(["ai-rtoc-cc"])),
