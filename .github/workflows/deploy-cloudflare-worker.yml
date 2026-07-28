@@ -43,6 +43,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
       CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -224,9 +225,9 @@ jobs:
           candidate_version_id="$(tr -d "\r\n" < .priceai-deploy/cloudflare-version-id)"
           npm run promote:cloudflare -- "$candidate_version_id"
 
-      - name: Purge Cloudflare zone cache
+      - name: Revalidate deployment page cache
         if: ${{ !inputs.emergency_direct }}
-        run: npm run purge:cloudflare-cache
+        run: npm run revalidate:deployment-cache
 
       - name: Smoke production deployment
         if: ${{ !inputs.emergency_direct }}

@@ -182,7 +182,11 @@ assert(!/\/api\/offers\?limit=80/.test(cloudflareSmokeText), "scripts/smoke-clou
 assert(!/\/api\/products\/chatgpt-plus\/offers\?limit=80/.test(cloudflareSmokeText), "scripts/smoke-cloudflare.mjs: production smoke must not use the heavy 80-row product offers path as the default health signal.");
 
 const cloudflareDeployWorkflowText = read(".github/workflows/deploy-cloudflare-worker.yml");
-assert(/Promote staged candidate[\s\S]{0,800}Purge Cloudflare zone cache[\s\S]{0,400}Smoke production deployment/.test(cloudflareDeployWorkflowText), ".github/workflows/deploy-cloudflare-worker.yml: production promotion must purge deployment-skewed HTML before smoke.");
+assert(/Promote staged candidate[\s\S]{0,800}Revalidate deployment page cache[\s\S]{0,400}Smoke production deployment/.test(cloudflareDeployWorkflowText), ".github/workflows/deploy-cloudflare-worker.yml: production promotion must revalidate deployment-skewed HTML before smoke.");
+
+const deploymentRevalidationRouteText = read("src/app/api/cron/deployment-revalidate/route.ts");
+assert(/authorizeCronRequest/.test(deploymentRevalidationRouteText), "src/app/api/cron/deployment-revalidate/route.ts: deployment-wide cache invalidation must require cron authorization.");
+assert(/revalidatePath\(["']\/["'],\s*["']layout["']\)/.test(deploymentRevalidationRouteText), "src/app/api/cron/deployment-revalidate/route.ts: deployment releases must invalidate the root layout and all nested pages.");
 
 const snapshotRefreshScriptText = read("scripts/refresh-public-api-snapshots.mjs");
 assert(/PRICEAI_BASE_URL/.test(snapshotRefreshScriptText), "scripts/refresh-public-api-snapshots.mjs: server snapshot refresh must support an explicit production base URL.");
