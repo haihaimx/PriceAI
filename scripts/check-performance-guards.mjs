@@ -141,6 +141,9 @@ assert(/www\.priceai\.cc/.test(middlewareText) && /\(\?!_next\/static/.test(midd
 const chunkRecoveryText = read("src/lib/chunk-load-recovery.ts");
 assert(/static\\\/\(\?:chunks\|css\)/.test(chunkRecoveryText), "src/lib/chunk-load-recovery.ts: both stale JavaScript and CSS deployment assets must trigger guarded recovery.");
 
+const rootLayoutText = read("src/app/layout.tsx");
+assert(/priceai-resource-recovery/.test(rootLayoutText) && /strategy="beforeInteractive"/.test(rootLayoutText), "src/app/layout.tsx: initial deployment asset failures need recovery before hydration starts.");
+
 const crawlLogRouteText = read("src/app/api/admin/crawl-log/route.ts");
 assert(/markPublicApiSnapshotsDirty/.test(crawlLogRouteText), "src/app/api/admin/crawl-log/route.ts: crawl-log writes must only mark public snapshots dirty.");
 assert(!/refreshPublicApiSnapshots/.test(crawlLogRouteText), "src/app/api/admin/crawl-log/route.ts: crawl-log writes must not synchronously refresh all public API snapshots.");
