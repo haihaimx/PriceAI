@@ -791,6 +791,58 @@ const customAdminNoteParsedStation = __test.parsePricingPayload(
 ).station;
 assert.equal(customAdminNoteParsedStation.admin_note, "保留来源配置中的人工备注。");
 assert.equal(customAdminNoteParsedStation.published, false);
+
+const explicitMissingGroupRatioRows = __test.parsePricingPayload(
+  {
+    id: "explicit-missing-group-ratio",
+    name: "Explicit Missing Group Ratio",
+    websiteUrl: "https://example.com/",
+    apiBaseUrl: "https://example.com/v1",
+    pricingUrl: "https://example.com/pricing",
+    pricingEndpointUrl: "https://example.com/api/pricing",
+    collectorKind: "new_api_pricing",
+    rechargeRatio: "1:1",
+  },
+  {
+    data: [
+      {
+        model_name: "gpt-5.5",
+        model_ratio: 1,
+        completion_ratio: 2,
+        enable_groups: ["gpt-plus", "plus"],
+      },
+    ],
+    group_ratio: { "gpt-plus": 0.08 },
+  },
+  "2026-07-28T00:00:00.000Z",
+);
+assert.deepEqual(explicitMissingGroupRatioRows.offers.map((offer) => offer.group_name), ["gpt-plus"]);
+assert.equal(explicitMissingGroupRatioRows.offers[0].raw_payload.group.groupRatio, 0.08);
+
+const legacyImplicitGroupRatioRows = __test.parsePricingPayload(
+  {
+    id: "legacy-implicit-group-ratio",
+    name: "Legacy Implicit Group Ratio",
+    websiteUrl: "https://example.com/",
+    apiBaseUrl: "https://example.com/v1",
+    pricingUrl: "https://example.com/pricing",
+    pricingEndpointUrl: "https://example.com/api/pricing",
+    collectorKind: "new_api_pricing",
+  },
+  {
+    data: [
+      {
+        model_name: "gpt-5.5",
+        model_ratio: 1,
+        completion_ratio: 2,
+        enable_groups: ["default"],
+      },
+    ],
+  },
+  "2026-07-28T00:00:00.000Z",
+);
+assert.equal(legacyImplicitGroupRatioRows.offers.length, 1);
+assert.equal(legacyImplicitGroupRatioRows.offers[0].raw_payload.group.groupRatio, null);
 assert.equal(__test.standardizeModelName("anthropic/claude-sonnet-5"), "Claude Sonnet 5");
 assert.equal(__test.standardizeModelName("Claude Sonnet 5"), "Claude Sonnet 5");
 assert.equal(__test.standardizeModelName("claude-sonnet-5-0"), "Claude Sonnet 5");

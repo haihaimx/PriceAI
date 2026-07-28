@@ -755,11 +755,25 @@ export function getPreferredTransitAvailabilityRollupPrices(
   prices: TransitModelPrice[],
   rankingScope: TransitAvailabilityRankingScope = "offer"
 ): TransitModelPrice[] {
-  const availabilityPrices = getTransitAvailabilityRollupPrices(station, prices);
+  const pricesWithEvidence = prices.filter((price) => hasValidTransitAvailabilityEvidence(price.availability));
+  const availabilityPrices = getTransitAvailabilityRollupPrices(
+    station,
+    pricesWithEvidence.length ? pricesWithEvidence : prices
+  );
   const directEvidence = availabilityPrices.filter(
     (price) => !isTransitAvailabilityReferenceForRankingScope(price.availability, rankingScope)
   );
   return directEvidence.length ? directEvidence : availabilityPrices;
+}
+
+function hasValidTransitAvailabilityEvidence(
+  availability: Pick<TransitAvailability, "sevenDayRate" | "sevenDaySamples">
+): boolean {
+  return (
+    availability.sevenDayRate !== null &&
+    Number.isFinite(availability.sevenDayRate) &&
+    availability.sevenDaySamples > 0
+  );
 }
 
 export type TransitAvailabilityRankingScope = "station" | "family" | "model" | "offer";
@@ -2853,10 +2867,21 @@ export function formatAvailability(
 export type AvailabilitySourceTone = "success" | "info" | "warning" | "muted";
 
 export function getAvailabilityEvidenceMeta(
-  availability: Pick<TransitAvailability, "scope" | "matchLevel" | "note" | "sourceType">
+  availability: Pick<
+    TransitAvailability,
+    "scope" | "matchLevel" | "note" | "sourceType" | "sevenDayRate" | "sevenDaySamples"
+  >
 ): { label: string; tone: AvailabilitySourceTone; title: string; reference: boolean } {
   const scope = getTransitAvailabilityScope(availability);
   const matchLevel = getTransitAvailabilityMatchLevel(availability);
+  if (!hasValidTransitAvailabilityEvidence(availability)) {
+    return {
+      label: "监测样本不足",
+      tone: "muted",
+      title: "当前记录没有可用于展示的成功率和监测样本。",
+      reference: false,
+    };
+  }
   if (matchLevel === "family") {
     return {
       label: "同家族参考",

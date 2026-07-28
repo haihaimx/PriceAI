@@ -523,14 +523,14 @@ function parsePricingPayload(source, payload, collectedAt) {
   }
 
   const items = normalizePricingItems(payload);
-  const groupRatios = normalizeGroupRatios(payload);
+  const groupRatioState = normalizeGroupRatios(payload);
   const selected = [];
 
   for (const item of items) {
     const standard = standardizeModelName(item.model_name || item.name || "");
     if (!standard) continue;
 
-    const groups = normalizeItemGroups(item, groupRatios);
+    const groups = normalizeItemGroups(item, groupRatioState);
     for (const group of groups) {
       const offer = buildOfferRow(source, item, group, standard, collectedAt);
       if (offer) selected.push(offer);
@@ -2251,9 +2251,10 @@ function normalizePricingItems(payload) {
 }
 
 function normalizeGroupRatios(payload) {
-  const raw = payload?.group_ratio || payload?.data?.group_info || payload?.group_info || {};
+  const candidates = [payload?.group_ratio, payload?.data?.group_info, payload?.group_info];
+  const raw = candidates.find((value) => value && typeof value === "object" && !Array.isArray(value));
   const groups = new Map();
-  if (!raw || typeof raw !== "object") return groups;
+  if (!raw) return { groups, declared: false };
 
   for (const [key, value] of Object.entries(raw)) {
     if (typeof value === "number") {
@@ -2266,10 +2267,11 @@ function normalizeGroupRatios(payload) {
       });
     }
   }
-  return groups;
+  return { groups, declared: true };
 }
 
-function normalizeItemGroups(item, groupRatios) {
+function normalizeItemGroups(item, groupRatioState) {
+  const { groups: groupRatios, declared: groupRatiosDeclared } = groupRatioState;
   if (item.price_info && typeof item.price_info === "object") {
     const groups = [];
     for (const [groupName, groupPayload] of Object.entries(item.price_info)) {
@@ -2279,6 +2281,7 @@ function normalizeItemGroups(item, groupRatios) {
         key: groupName,
         name: meta.name || groupName,
         groupRatio: meta.ratio,
+        groupRatioMissing: groupRatiosDeclared && (!groupRatios.has(groupName) || meta.ratio === null),
         description: meta.description,
         modelRatio: numberValue(defaultPayload?.model_ratio),
         completionRatio: numberValue(defaultPayload?.model_completion_ratio ?? defaultPayload?.completion_ratio),
@@ -2296,6 +2299,7 @@ function normalizeItemGroups(item, groupRatios) {
       key: groupName,
       name: meta.name || groupName,
       groupRatio: meta.ratio,
+      groupRatioMissing: groupRatiosDeclared && (!groupRatios.has(groupName) || meta.ratio === null),
       description: meta.description,
       modelRatio: numberValue(item.model_ratio),
       completionRatio: numberValue(item.completion_ratio),
@@ -2964,6 +2968,7 @@ function buildStationRow(source, collectedAt, collection = {}) {
 
 function buildOfferRow(source, item, group, standard, collectedAt) {
   const family = familyForStandardModel(standard);
+  if (group.groupRatioMissing) return null;
   const groupMultiplier = group.groupRatio ?? 1;
   const rechargeRatio = source.rechargeRatio || DEFAULT_RECHARGE_RATIO;
   const splitMultipliers = getSplitMultipliers(item, group, standard, groupMultiplier, rechargeRatio);

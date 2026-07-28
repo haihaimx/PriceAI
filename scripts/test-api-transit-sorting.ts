@@ -18,6 +18,7 @@ import {
   getStandardModelRateSummary,
   getTransitRecentAvailabilitySampleLookupScopes,
   getTransitAvailabilityRollupPrices,
+  getPreferredTransitAvailabilityRollupPrices,
   getTransitModelSummaries,
   getOfficialTransitModelPrice,
   getNormalizedSourceTags,
@@ -902,6 +903,62 @@ assertEqual(duplicateGptSummary.sevenDaySamples, 130);
 assertEqual(Math.round((duplicateGptSummary.sevenDayRate || 0) * 100), 99);
 assertDeepEqual(duplicateGptSummary.recentSamples, duplicateProbePrice.availability.recentSamples);
 assertEqual(getAvailabilityEvidenceMeta(duplicatePublicStatusPrice.availability).label, "分组公开监测");
+
+const zeroSampleExactPrice = {
+  ...duplicatePublicStatusPrice,
+  availability: {
+    ...duplicatePublicStatusPrice.availability,
+    sevenDayRate: null,
+    sevenDaySamples: 0,
+    recentSamples: [],
+    sourceType: "unknown" as const,
+    sourceLabel: null,
+    sourceUrl: null,
+    scope: "offer" as const,
+    matchLevel: "exact" as const,
+    monitoringScopeId: "scope:zero-sample-exact",
+  },
+};
+const validModelReferencePrice = {
+  ...duplicatePublicStatusPrice,
+  availability: {
+    ...duplicatePublicStatusPrice.availability,
+    sevenDayRate: 1,
+    sevenDaySamples: 1,
+    sourceType: "public_status" as const,
+    sourceLabel: "公开监测页",
+    sourceUrl: "https://duplicate-availability.example.test/status",
+    scope: "model" as const,
+    matchLevel: "model" as const,
+    monitoringScopeId: "scope:valid-model-reference",
+  },
+};
+const modelFallbackPrices = getPreferredTransitAvailabilityRollupPrices(
+  duplicateAvailabilityStation,
+  [zeroSampleExactPrice, validModelReferencePrice],
+);
+assertEqual(modelFallbackPrices.length, 1);
+assertEqual(modelFallbackPrices[0]?.availability.matchLevel, "model");
+assertEqual(getAvailabilityEvidenceMeta(modelFallbackPrices[0]!.availability).label, "同模型参考");
+assertEqual(getAvailabilityEvidenceMeta(zeroSampleExactPrice.availability).label, "监测样本不足");
+
+const validExactPrice = {
+  ...zeroSampleExactPrice,
+  availability: {
+    ...zeroSampleExactPrice.availability,
+    sevenDayRate: 0.99,
+    sevenDaySamples: 2,
+    sourceType: "public_status" as const,
+    sourceLabel: "公开监测页",
+    sourceUrl: "https://duplicate-availability.example.test/status",
+  },
+};
+const exactPreferredPrices = getPreferredTransitAvailabilityRollupPrices(
+  duplicateAvailabilityStation,
+  [validExactPrice, validModelReferencePrice],
+);
+assertEqual(exactPreferredPrices.length, 1);
+assertEqual(exactPreferredPrices[0]?.availability.matchLevel, "exact");
 
 const sharedGroupEvidenceStation = station({
   id: "shared-group-evidence",
