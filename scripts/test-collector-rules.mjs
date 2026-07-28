@@ -107,11 +107,11 @@ assert.equal(isDailyProbeFailure("采集结果为空", 4), false);
 assert.equal(isDailyProbeFailure("店铺接口正常，完整商品快照为空（goods_count=0）。", 2), false);
 assert.equal(isWeeklyProbeFailure("HTTP 404 from source", 3), true);
 assert.equal(isWeeklyProbeFailure("采集结果为空", 4), true);
-assert.equal(isWeeklyProbeFailure("fetch failed", 3), true);
-assert.equal(isWeeklyProbeFailure("HTTP 403 challenge", 3), true);
+assert.equal(isWeeklyProbeFailure("fetch failed", 3), false);
+assert.equal(isWeeklyProbeFailure("HTTP 403 challenge", 3), false);
 assert.equal(isWeeklyProbeFailure("HTTP 468", 3), true);
-assert.equal(isWeeklyProbeFailure("HTTP 502", 3), true);
-assert.equal(isWeeklyProbeFailure("HTTP 522", 3), true);
+assert.equal(isWeeklyProbeFailure("HTTP 502", 3), false);
+assert.equal(isWeeklyProbeFailure("HTTP 522", 3), false);
 assert.equal(isWeeklyProbeFailure("商家已被关闭交易", 3), true);
 assert.equal(isWeeklyProbeFailure("域名跳转至运营商警告页", 3), true);
 assert.equal(isWeeklyProbeFailure("No shop token found", 3), true);
@@ -565,7 +565,33 @@ assert.equal(
     hotProductLowestHitCount: 0,
     hotProductTop5HitCount: 0,
   }).tier,
+  "retry_priority",
+);
+assert.equal(
+  classifyShopCollectionScheduleTier({
+    target: { collectionGroup: "automatic", healthStatus: "failing", consecutiveFailures: 4, lastError: "HTTP 403 challenge" },
+    latestRun: { status: "failed", message: "HTTP 403 challenge" },
+    scaleBand: "large",
+    changeBand: "unknown",
+    lowPriceBand: "weak",
+    hotProductOfferCount: 0,
+    hotProductLowestHitCount: 0,
+    hotProductTop5HitCount: 0,
+  }).tier,
   "retry_cooldown",
+);
+assert.equal(
+  classifyShopCollectionScheduleTier({
+    target: { collectionGroup: "automatic", healthStatus: "failing", consecutiveFailures: 4, lastError: "HTTP 404 from source" },
+    latestRun: { status: "failed", message: "HTTP 404 from source" },
+    scaleBand: "large",
+    changeBand: "unknown",
+    lowPriceBand: "weak",
+    hotProductOfferCount: 0,
+    hotProductLowestHitCount: 0,
+    hotProductTop5HitCount: 0,
+  }).tier,
+  "weekly_probe",
 );
 
 const excludedSources = selectTargets(

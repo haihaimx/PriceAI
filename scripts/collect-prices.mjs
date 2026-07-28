@@ -4770,6 +4770,10 @@ function classifyShopCollectionScheduleTier(input) {
       reasons.push("连续站点异常，保留原因并降为每周复检");
       return { tier: "weekly_probe", reasons };
     }
+    if (input.target.collectionGroup === "vip_15m" && runtimeIssue) {
+      reasons.push("VIP 来源发生可恢复运行错误，保持 1h 恢复重试");
+      return { tier: "retry_priority", reasons };
+    }
     if (strongLowPrice || hotLowPrice || hasHotProduct) {
       reasons.push("仍有低价或重点商品价值，冷却后优先重试");
       return { tier: "retry_priority", reasons };
@@ -4817,7 +4821,8 @@ function isDailyProbeFailure(lastError, consecutiveFailures) {
 
 function isWeeklyProbeFailure(lastError, consecutiveFailures) {
   if (Number(consecutiveFailures || 0) < OBSERVATION_PROBE_FAILURE_THRESHOLD) return false;
-  return !isDailyProbeFailure(lastError, consecutiveFailures);
+  if (isDailyProbeFailure(lastError, consecutiveFailures)) return false;
+  return !sourceQualityRuntimeIssueLabel(lastError);
 }
 
 function shopCollectionScheduleReferenceAt(target, latestRun, tier) {
