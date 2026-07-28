@@ -4822,6 +4822,7 @@ function isDailyProbeFailure(lastError, consecutiveFailures) {
 function isWeeklyProbeFailure(lastError, consecutiveFailures) {
   if (Number(consecutiveFailures || 0) < OBSERVATION_PROBE_FAILURE_THRESHOLD) return false;
   if (isDailyProbeFailure(lastError, consecutiveFailures)) return false;
+  if (/^\s*采集结果为空[。.]*\s*$/i.test(String(lastError || ""))) return false;
   return !sourceQualityRuntimeIssueLabel(lastError);
 }
 
