@@ -224,6 +224,10 @@ jobs:
           candidate_version_id="$(tr -d "\r\n" < .priceai-deploy/cloudflare-version-id)"
           npm run promote:cloudflare -- "$candidate_version_id"
 
+      - name: Purge Cloudflare zone cache
+        if: ${{ !inputs.emergency_direct }}
+        run: npm run purge:cloudflare-cache
+
       - name: Smoke production deployment
         if: ${{ !inputs.emergency_direct }}
         env:

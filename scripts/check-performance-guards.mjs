@@ -181,6 +181,9 @@ assert(/\/api\/products\/chatgpt-plus\/offers\?limit=30/.test(cloudflareSmokeTex
 assert(!/\/api\/offers\?limit=80/.test(cloudflareSmokeText), "scripts/smoke-cloudflare.mjs: production smoke must not use the heavy 80-row offers path as the default health signal.");
 assert(!/\/api\/products\/chatgpt-plus\/offers\?limit=80/.test(cloudflareSmokeText), "scripts/smoke-cloudflare.mjs: production smoke must not use the heavy 80-row product offers path as the default health signal.");
 
+const cloudflareDeployWorkflowText = read(".github/workflows/deploy-cloudflare-worker.yml");
+assert(/Promote staged candidate[\s\S]{0,800}Purge Cloudflare zone cache[\s\S]{0,400}Smoke production deployment/.test(cloudflareDeployWorkflowText), ".github/workflows/deploy-cloudflare-worker.yml: production promotion must purge deployment-skewed HTML before smoke.");
+
 const snapshotRefreshScriptText = read("scripts/refresh-public-api-snapshots.mjs");
 assert(/PRICEAI_BASE_URL/.test(snapshotRefreshScriptText), "scripts/refresh-public-api-snapshots.mjs: server snapshot refresh must support an explicit production base URL.");
 assert(/CRON_SECRET/.test(snapshotRefreshScriptText), "scripts/refresh-public-api-snapshots.mjs: server snapshot refresh must use the protected cron secret.");
