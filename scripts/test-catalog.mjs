@@ -31,18 +31,18 @@ const {
 } = await loadOfferFilterTagsModule();
 
 const cases = [
-  ["ChatGPT Plus 直充 卡密自助", "chatgpt-plus"],
+  ["ChatGPT Plus 直充 卡密自助", "chatgpt-codex-service"],
   ["ChatGPT Plus 成品号 独享账号", "chatgpt-plus"],
   ["UPI渠道-PLUS成品号30天（iCloud高权重母号邮箱）", "chatgpt-plus"],
   ["UPI渠道-PLUS独享成品号30天（iCloud高权重母号邮箱）", "chatgpt-plus"],
-  ["【推荐】GPT Plus充值CDK - pix 自动充值渠道非成品需自备账号，自己账号有team不能冲", "chatgpt-plus"],
+  ["【推荐】GPT Plus充值CDK - pix 自动充值渠道非成品需自备账号，自己账号有team不能冲", "chatgpt-codex-service"],
   ["ChatGPT Plus成品会员账号｜提供邮箱账密，带RT 可直接导入中转站｜自动发货", "chatgpt-plus"],
   ["PLUS-成品-已接码rt-微软邮箱-支持登录网页端，支持直接登录codex-质保首登", "chatgpt-plus"],
   ["谷歌邮箱gptplus月卡会员质保首登成品号带2fa（不可反代）", "chatgpt-plus"],
-  ["ChatGPT ios土区正规自助卡密", "chatgpt-plus"],
+  ["ChatGPT ios土区正规自助卡密", "chatgpt-codex-service"],
   ["GPT续费一个月卡密（IOS 内购渠道）【质保订阅不管封号】", "chatgpt-plus"],
   ["PLUS月卡批发(IOS土区)", "chatgpt-plus"],
-  ["ChatGPT自助卡密（ios土区）", "chatgpt-plus"],
+  ["ChatGPT自助卡密（ios土区）", "chatgpt-codex-service"],
   ["【质保-菲区卡冲】GPT Plus官方直充月卡【可开发票】", "chatgpt-plus-recharge"],
   ["菲律宾区 ChatGPT Plus 官方充值 月卡", "chatgpt-plus-recharge"],
   ["巴西区 GPT Plus App Store 内购续费", "chatgpt-plus"],
@@ -75,15 +75,22 @@ const cases = [
   ["GPT plus 质保30天月卡（官方渠道，保订阅，保封号）支持开票", "chatgpt-plus"],
   ["GPT Plus 一个月[菲区]【质保订阅】", "chatgpt-plus"],
   ["ChatGPT Plus iOS渠道质保订阅", "chatgpt-plus"],
-  ["GPT Plus 24小时自动充值 质保订阅", "chatgpt-plus"],
+  ["GPT Plus 24小时自动充值 质保订阅", "chatgpt-codex-service"],
   ["ChatGPT Plus 卡充 CDK 秒冲【质保订阅】", "chatgpt-plus"],
-  ["GPT-充值 GPT-成品 UPI成品 工具服务 其他账户 kakao自助充值 秒发货", "chatgpt-plus"],
+  ["GPT-充值 GPT-成品 UPI成品 工具服务 其他账户 kakao自助充值 秒发货", "chatgpt-codex-service"],
   ["GPT Plus 充值CDK kakao 新渠道", "chatgpt-plus"],
   ["ChatGPT-Plus一个月CKD卡密直充", "chatgpt-plus"],
   ["GPT Plus 官方直充月卡【真实付费开通！保证正规充值】", "chatgpt-plus-recharge"],
-  ["GPT Plus 一个月会员 -卡密自助 Pix渠道【仅支持新号或老号有试用】【无质保】【巴西老哥人工充值】", "chatgpt-plus"],
+  ["GPT Plus 一个月会员 -卡密自助 Pix渠道【仅支持新号或老号有试用】【无质保】【巴西老哥人工充值】", "chatgpt-codex-service"],
   ["GPT Plus试用pix充值【巴西渠道】【官方试用】", "chatgpt-plus"],
-  ["ChatGPT PLUS 自助充值卡密 (巴西Pix渠道）", "chatgpt-plus"],
+  ["ChatGPT PLUS 自助充值卡密 (巴西Pix渠道）", "chatgpt-codex-service"],
+  ["GPT-Plus-UPI自助充值，需自备icloud试用资格邮箱！小白别买！！", "chatgpt-codex-service"],
+  ["kakao自助充值", "chatgpt-codex-service"],
+  ["GPT UPI 提炼服务", "chatgpt-codex-service"],
+  ["ChatGPT 提取链接服务", "chatgpt-codex-service"],
+  ["ChatGPT Plus 成品号 独享账号 自动充值", "chatgpt-plus"],
+  ["ChatGPT Plus 成品号 独享账号 自助开通", "chatgpt-plus"],
+  ["ChatGPT Plus 自动充值 非成品需自备账号", "chatgpt-codex-service"],
   ["gptplus质保48小时未接码(巴西渠道更稳）", "chatgpt-plus"],
   ["GPT PLUS镜像站(天卡)", "chatgpt-plus"],
   ["GPTPLUS镜像站【周卡】", "chatgpt-plus"],
@@ -355,11 +362,11 @@ const priceInvariantCases = [
   ["Claude Team 1.25x 30天质保订阅", "claude-team-standard"],
   ["Claude Team 6.25x 30天质保订阅", "claude-team-premium"],
   ["Google AI Ultra 250美元 Flow 积分", "gemini-ultra"],
-  ["ChatGPT自助卡密（ios土区）", "chatgpt-plus"],
+  ["ChatGPT自助卡密（ios土区）", "chatgpt-codex-service"],
   ["【质保-菲区卡冲】GPT Plus官方直充月卡【可开发票】", "chatgpt-plus-recharge"],
-  ["GPT Plus 一个月会员 -卡密自助 Pix渠道【仅支持新号或老号有试用】【无质保】【巴西老哥人工充值】", "chatgpt-plus"],
+  ["GPT Plus 一个月会员 -卡密自助 Pix渠道【仅支持新号或老号有试用】【无质保】【巴西老哥人工充值】", "chatgpt-codex-service"],
   ["Claude Pro 月卡 直充", "claude-pro-month"],
-  ["ChatGPT Plus 直充 卡密自助", "chatgpt-plus"],
+  ["ChatGPT Plus 直充 卡密自助", "chatgpt-codex-service"],
   ["GPT PLUS镜像站(天卡)", "chatgpt-plus"],
   ["GPT Team成品 rt子号 | 质保首次登录 发json cpa格式", "chatgpt-team-business"],
   ["Gemini Pro 一年 12个月", "gemini-pro-year"],
@@ -526,6 +533,10 @@ const tagCases = [
   ["【质保一个月】ChatGPT Plus网页镜像", ["domestic_mirror_site"]],
   ["【质保一个月】Super Grok网页镜像", ["domestic_mirror_site"]],
   ["ChatGPT Plus 直充 卡密自助", ["delivery_recharge"]],
+  ["GPT UPI 提链 CDK", ["chatgpt_service_link"]],
+  ["GPT-Plus印度UPI扫码对接（CDK）保持高二维码生成率", ["chatgpt_service_scan"]],
+  ["GPT-Plus-UPI自助充值，使用iCloud邮箱", ["chatgpt_service_self_recharge"]],
+  ["只提炼-多国家-二维码提炼-不包括扫码", ["chatgpt_service_link"]],
   ["GPT Plus 一个月会员 -卡密自助 Pix渠道", ["delivery_recharge"]],
   ["【推荐】GPT Plus充值CDK - pix 自动充值渠道非成品需自备账号", ["delivery_recharge"]],
   ["GPT Plus 一个月会员 -卡密自助 Pix渠道【巴西渠道】", ["chatgpt_plus_brazil_pix"]],
@@ -560,6 +571,15 @@ for (const [title, expectedTags] of tagCases) {
     assert.ok(tags.includes(tag), `${title} should include ${tag}. actual=${tags.join(",")}`);
   }
 }
+
+assert.ok(
+  !deriveOfferFilterTags({ sourceTitle: "印度UPI | 提链1次卡 | 无扫码渠道请勿下单" }).includes("chatgpt_service_scan"),
+  "A scan-channel prerequisite must not be tagged as a scan service.",
+);
+assert.ok(
+  !deriveOfferFilterTags({ sourceTitle: "只提炼-多国家-二维码提炼-不包括扫码" }).includes("chatgpt_service_scan"),
+  "An explicit no-scan offer must not be tagged as a scan service.",
+);
 
 const proxySupportedCases = [
   ["ChatGPT 普号 支持Codex官方端登录 JSON格式", true],
@@ -601,6 +621,11 @@ const productSpecificTagScopeCases = [
     "chatgpt-plus",
     ["chatgpt_plus_brazil_pix", "chatgpt_plus_europe_channel", "chatgpt_plus_recharge_ph_card", "delivery_account", "proxy_supported", "web_only_account", "account_verified", "account_unverified"],
     ["web_only_account", "account_verified", "account_unverified", "chatgpt_plus_brazil_pix", "chatgpt_plus_europe_channel"],
+  ],
+  [
+    "chatgpt-codex-service",
+    ["chatgpt_service_link", "chatgpt_service_scan", "chatgpt_service_self_recharge", "chatgpt_plus_india_upi", "delivery_recharge"],
+    ["chatgpt_service_link", "chatgpt_service_scan", "chatgpt_service_self_recharge"],
   ],
   [
     "chatgpt-plus-recharge",
@@ -786,6 +811,8 @@ const productFacetCases = buildOfferFilterFacets([
   { sourceTitle: "ChatGPT Plus 月卡 30天质保 拼车" },
   { sourceTitle: "GPT Plus 成品号（质保首登，codex已经用完，网页号）日抛" },
   { sourceTitle: "ChatGPT Plus 直充 卡密自助" },
+  { sourceTitle: "GPT UPI 提链 CDK" },
+  { sourceTitle: "GPT-Plus印度UPI扫码对接（CDK）保持高二维码生成率" },
   { sourceTitle: "ChatGPT Plus 成品号 独享账号 已接码" },
   { sourceTitle: "ChatGPT Plus 半成品号 未接码" },
   { sourceTitle: "Super Grok 独享成品号 3天会员" },
@@ -821,6 +848,11 @@ assert.ok(chatGptFacetIds.includes("account_verified"), "ChatGPT Plus should sho
 assert.ok(chatGptFacetIds.includes("account_unverified"), "ChatGPT Plus should show unverified account filters.");
 assert.ok(!chatGptFacetIds.includes("proxy_supported"), "ChatGPT Plus should hide proxy-supported filters.");
 assert.ok(chatGptFacetIds.includes("warranty_long"), "ChatGPT Plus should keep warranty filters.");
+
+const chatGptServiceFacetIds = filterOfferFilterFacetsForProduct("chatgpt-codex-service", productFacetCases).map((facet) => facet.id);
+assert.ok(chatGptServiceFacetIds.includes("chatgpt_service_link"), "ChatGPT peripheral services should show link filters.");
+assert.ok(chatGptServiceFacetIds.includes("chatgpt_service_scan"), "ChatGPT peripheral services should show scan filters.");
+assert.ok(!chatGptServiceFacetIds.includes("delivery_recharge"), "ChatGPT peripheral services should hide the generic recharge filter.");
 
 const superGrokFacetIds = filterOfferFilterFacetsForProduct("super-grok", productFacetCases).map((facet) => facet.id);
 assert.ok(superGrokFacetIds.includes("duration_trial"), "Super Grok should show duration filters.");
@@ -908,6 +940,11 @@ assert.deepEqual(
   parseOfferFilterTagsForProduct("chatgpt-plus", "web_only_account,account_verified,account_unverified,warranty_long"),
   ["web_only_account", "account_verified", "account_unverified", "warranty_long"],
   "ChatGPT Plus should accept web-only and account-state filters.",
+);
+assert.deepEqual(
+  parseOfferFilterTagsForProduct("chatgpt-codex-service", "chatgpt_service_link,chatgpt_service_scan,chatgpt_service_self_recharge,delivery_recharge"),
+  ["chatgpt_service_link", "chatgpt_service_scan", "chatgpt_service_self_recharge"],
+  "ChatGPT peripheral services should accept only their dedicated service filters.",
 );
 assert.deepEqual(
   parseOfferFilterTagsForProduct("chatgpt-team-business", "delivery_recharge,delivery_account,warranty_long"),

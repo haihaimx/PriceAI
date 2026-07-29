@@ -25,8 +25,11 @@ import {
   parseMerchantCollectorFilter,
 } from "@/lib/merchant-collectors";
 import {
+  OFFER_FILTER_TAGS,
   OFFER_FILTER_TAG_BY_ID,
+  deriveOfferFilterTags,
   isChatGptPlusChannelFilterTag,
+  offerFilterTagAppliesToProduct,
   parseOfferFilterTagsForProduct,
   toggleOfferFilterTag,
   type OfferFilterTagFacet,
@@ -2266,6 +2269,8 @@ export function OfferFeedbackDialog({
   const [reason, setReason] = useState<OfferFeedbackReason | "">("");
   const [issueDimension, setIssueDimension] = useState<OfferFeedbackIssueDimension | "">("");
   const [expectedProductId, setExpectedProductId] = useState("");
+  const [reportedFilterTagId, setReportedFilterTagId] = useState<OfferFilterTagId | "">("");
+  const [expectedFilterTagId, setExpectedFilterTagId] = useState<OfferFilterTagId | "">("");
   const [userExpectedAction, setUserExpectedAction] = useState<OfferFeedbackUserExpectedAction>("unsure");
   const [notes, setNotes] = useState("");
   const [evidenceText, setEvidenceText] = useState("");
@@ -2297,6 +2302,19 @@ export function OfferFeedbackDialog({
     uploadedEvidence.length > 0 ||
     extractEvidenceUrls(evidenceText).length > 0 ||
     evidenceText.trim().length >= 8;
+  const currentFilterTagIds = useMemo(
+    () => parseOfferFilterTagsForProduct(
+      productId,
+      offer.filterTags?.length ? offer.filterTags : deriveOfferFilterTags({ sourceTitle: offer.sourceTitle, tags: offer.tags }),
+    ),
+    [offer.filterTags, offer.sourceTitle, offer.tags, productId],
+  );
+  const expectedFilterTagOptions = useMemo(
+    () => OFFER_FILTER_TAGS.filter(
+      (tag) => offerFilterTagAppliesToProduct(productId, tag.id) && !currentFilterTagIds.includes(tag.id),
+    ),
+    [currentFilterTagIds, productId],
+  );
 
   useEffect(() => {
     const draft = readFeedbackDraft("offer", offer.id);
@@ -2307,6 +2325,16 @@ export function OfferFeedbackDialog({
       }
       if (typeof draft.userExpectedAction === "string" && expectedActionOptions.some((option) => option.value === draft.userExpectedAction)) {
         setUserExpectedAction(draft.userExpectedAction as OfferFeedbackUserExpectedAction);
+      }
+      if (typeof draft.issueDimension === "string" && categoryIssueDimensionOptions.some((option) => option.value === draft.issueDimension)) {
+        setIssueDimension(draft.issueDimension as OfferFeedbackIssueDimension);
+      }
+      if (typeof draft.expectedProductId === "string") setExpectedProductId(draft.expectedProductId);
+      if (typeof draft.reportedFilterTagId === "string" && OFFER_FILTER_TAG_BY_ID.has(draft.reportedFilterTagId as OfferFilterTagId)) {
+        setReportedFilterTagId(draft.reportedFilterTagId as OfferFilterTagId);
+      }
+      if (typeof draft.expectedFilterTagId === "string" && OFFER_FILTER_TAG_BY_ID.has(draft.expectedFilterTagId as OfferFilterTagId)) {
+        setExpectedFilterTagId(draft.expectedFilterTagId as OfferFilterTagId);
       }
       if (typeof draft.notes === "string") setNotes(draft.notes.slice(0, 500));
     });
@@ -2341,8 +2369,38 @@ export function OfferFeedbackDialog({
       setLoading(false);
       return;
     }
-    if (reason === "wrong_category" && issueDimension === "product_category" && !expectedProductId && notes.trim().length < 4) {
-      setMessage({ type: "error", text: "请选择正确分类，或在补充说明中写明应该如何归类。" });
+    if (reason === "wrong_category" && issueDimension === "product_category" && !expectedProductId) {
+      setMessage({ type: "error", text: "请选择正确分类。" });
+      setLoading(false);
+      return;
+    }
+    if (reason === "wrong_category" && issueDimension === "product_category" && expectedProductId === productId) {
+      setMessage({ type: "error", text: "所选分类与当前分类相同；如果是标签不对，请选择“筛选标签错误”。" });
+      setLoading(false);
+      return;
+    }
+    if (reason === "wrong_category" && issueDimension === "filter_tag" && !reportedFilterTagId && !expectedFilterTagId) {
+      setMessage({ type: "error", text: "请选择错误标签，或选择应该补充的标签。" });
+      setLoading(false);
+      return;
+    }
+    if (
+      reason === "wrong_category" &&
+      issueDimension === "filter_tag" &&
+      reportedFilterTagId &&
+      reportedFilterTagId === expectedFilterTagId
+    ) {
+      setMessage({ type: "error", text: "错误标签与期望标签不能相同。" });
+      setLoading(false);
+      return;
+    }
+    if (
+      reason === "wrong_category" &&
+      issueDimension === "filter_tag" &&
+      expectedFilterTagId &&
+      currentFilterTagIds.includes(expectedFilterTagId)
+    ) {
+      setMessage({ type: "error", text: "期望标签已经存在，请选择其他标签。" });
       setLoading(false);
       return;
     }
@@ -2396,6 +2454,8 @@ export function OfferFeedbackDialog({
           reason,
           issueDimension: reason === "wrong_category" ? issueDimension : null,
           expectedProductId: reason === "wrong_category" && issueDimension === "product_category" ? expectedProductId || null : null,
+          reportedFilterTagId: reason === "wrong_category" && issueDimension === "filter_tag" ? reportedFilterTagId || null : null,
+          expectedFilterTagId: reason === "wrong_category" && issueDimension === "filter_tag" ? expectedFilterTagId || null : null,
           userExpectedAction,
           evidenceText: evidenceText || null,
           evidenceUrls,
@@ -2424,7 +2484,15 @@ export function OfferFeedbackDialog({
   }
 
   function persistOfferDraft() {
-    writeFeedbackDraft("offer", offer.id, { reason, userExpectedAction, notes });
+    writeFeedbackDraft("offer", offer.id, {
+      reason,
+      issueDimension,
+      expectedProductId,
+      reportedFilterTagId,
+      expectedFilterTagId,
+      userExpectedAction,
+      notes,
+    });
   }
 
   return (
@@ -2463,6 +2531,8 @@ export function OfferFeedbackDialog({
                 if (nextReason !== "wrong_category") {
                   setIssueDimension("");
                   setExpectedProductId("");
+                  setReportedFilterTagId("");
+                  setExpectedFilterTagId("");
                 }
               }}
               required
@@ -2484,6 +2554,10 @@ export function OfferFeedbackDialog({
                     const nextDimension = event.target.value as OfferFeedbackIssueDimension | "";
                     setIssueDimension(nextDimension);
                     if (nextDimension !== "product_category") setExpectedProductId("");
+                    if (nextDimension !== "filter_tag") {
+                      setReportedFilterTagId("");
+                      setExpectedFilterTagId("");
+                    }
                   }}
                   required
                   className="h-10 w-full rounded-lg border border-[#adb3b4]/40 bg-white px-3 text-sm outline-none transition focus:border-[#2d3435]"
@@ -2496,18 +2570,48 @@ export function OfferFeedbackDialog({
               </label>
               {issueDimension === "product_category" ? (
                 <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-[#5a6061]">应该归入</span>
+                  <span className="mb-1 block text-xs font-medium text-[#5a6061]">应该归入（必选）</span>
                   <select
                     value={expectedProductId}
                     onChange={(event) => setExpectedProductId(event.target.value)}
                     className="h-10 w-full rounded-lg border border-[#adb3b4]/40 bg-white px-3 text-sm outline-none transition focus:border-[#2d3435]"
                   >
-                    <option value="">不确定，在说明中填写</option>
-                    {feedbackExpectedProductOptions.map((option) => (
+                    <option value="">请选择正确分类</option>
+                    {feedbackExpectedProductOptions.filter((option) => option.id !== productId).map((option) => (
                       <option key={option.id} value={option.id}>{option.platform} · {option.displayName}</option>
                     ))}
                   </select>
                 </label>
+              ) : null}
+              {issueDimension === "filter_tag" ? (
+                <>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-[#5a6061]">当前哪个标签不对</span>
+                    <select
+                      value={reportedFilterTagId}
+                      onChange={(event) => setReportedFilterTagId(event.target.value as OfferFilterTagId | "")}
+                      className="h-10 w-full rounded-lg border border-[#adb3b4]/40 bg-white px-3 text-sm outline-none transition focus:border-[#2d3435]"
+                    >
+                      <option value="">没有错误标签</option>
+                      {currentFilterTagIds.map((tagId) => (
+                        <option key={tagId} value={tagId}>{OFFER_FILTER_TAG_BY_ID.get(tagId)?.label || tagId}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-[#5a6061]">应该补充哪个标签</span>
+                    <select
+                      value={expectedFilterTagId}
+                      onChange={(event) => setExpectedFilterTagId(event.target.value as OfferFilterTagId | "")}
+                      className="h-10 w-full rounded-lg border border-[#adb3b4]/40 bg-white px-3 text-sm outline-none transition focus:border-[#2d3435]"
+                    >
+                      <option value="">不需要补充标签</option>
+                      {expectedFilterTagOptions.map((tag) => (
+                        <option key={tag.id} value={tag.id}>{tag.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </>
               ) : null}
             </div>
           ) : null}

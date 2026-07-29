@@ -2,7 +2,7 @@ import type { CanonicalProduct, ProductGroup, RawOffer } from "./types";
 import { hasChatGptPlusRechargeOfficialDirectSignal, offerMatchesFilterTags } from "./offer-filter-tags";
 import { API_CDK_PLATFORM, isPublicCatalogProduct } from "./trust-risk";
 
-export const OFFER_CLASSIFICATION_VERSION = "2026-07-27.semantic-classification-v5";
+export const OFFER_CLASSIFICATION_VERSION = "2026-07-29.semantic-classification-v6";
 
 export const allPlatformOptions = [
   "ChatGPT",
@@ -187,12 +187,12 @@ export const canonicalCatalog: CanonicalProduct[] = [
   {
     id: "chatgpt-codex-service",
     slug: "chatgpt-codex-service",
-    displayName: "Codex / ChatGPT 周边服务",
+    displayName: "Codex / ChatGPT 周边与自助服务",
     platform: "ChatGPT",
     productType: "辅助服务",
-    spec: "Codex / ChatGPT 辅助",
-    summary: "Codex 或 ChatGPT 的额度重置、链接提取、服务包等周边辅助服务，不含 API 额度、接码或账号会员。",
-    aliases: ["codex 重置额度", "重置额度", "长链提取", "链接提取", "服务包", "周边服务"],
+    spec: "提链 · 扫码 · 自助充值 · 额度重置",
+    summary: "Codex 或 ChatGPT 使用过程中的提链、支付二维码处理、扫码对接、自助充值、额度重置和其他辅助服务。不含成品账号、独立接码服务、API 额度或人工正价代充。",
+    aliases: ["codex 重置额度", "重置额度", "长链提取", "链接提取", "提链", "扫码对接", "自助充值", "服务包", "周边服务"],
   },
   {
     id: "claude-pro-month",
@@ -2280,9 +2280,36 @@ function isICloudBackedAiAccountProduct(value: string): boolean {
 
 function isChatGptPeripheralService(value: string): boolean {
   const hasPaymentLinkExtractionSignal = isChatGptPaymentLinkExtractionService(value);
-  if (!hasPaymentLinkExtractionSignal && !matches(value, ["codex", "chatgpt", "gpt", "openai", "plus"])) return false;
+  const hasSelfServiceRechargeSignal = isChatGptSelfServiceRecharge(value);
+  if (
+    !hasPaymentLinkExtractionSignal &&
+    !hasSelfServiceRechargeSignal &&
+    !matches(value, ["codex", "chatgpt", "gpt", "openai", "plus"])
+  ) {
+    return false;
+  }
+  if (isCodexPhoneVerification(value)) return false;
+  if (isApiProductCoreSignal(value)) return false;
+  if (hasSelfServiceRechargeSignal) {
+    const hasAccountDeliverySignal = matches(value, ["成品号", "成品账号", "成品帐号", "独享账号", "独享账户", "账密", "首登", "直登"]);
+    const hasOwnAccountSignal = matches(value, [
+      "非成品",
+      "自备账号",
+      "自备号",
+      "自己账号",
+      "自己的账号",
+      "自己号",
+      "到自己账号",
+      "冲自己号",
+      "充值自己号",
+      "给自己号",
+      "任何账号可充",
+      "kakao自助充值",
+    ]);
+    if (hasAccountDeliverySignal && !hasOwnAccountSignal) return false;
+    return true;
+  }
   if (hasPaymentLinkExtractionSignal) {
-    if (isCodexPhoneVerification(value)) return false;
     if (matches(value, ["代付代扫", "代付服务", "代扫服务"])) return true;
     if (matches(value, ["成品号", "账号", "账户", "账密", "月卡", "会员", "直充", "代充"])) return false;
 
@@ -2295,13 +2322,35 @@ function isChatGptPeripheralService(value: string): boolean {
     matches(value, ["长链提取", "长链接提取", "链接提取", "提取服务", "提取服务包", "长链服务包"]) ||
     (matches(value, ["服务包"]) && matches(value, ["长链", "提取", "codex", "chatgpt", "gpt", "plus"]));
   if (!hasPeripheralSignal) return false;
-  if (isCodexPhoneVerification(value)) return false;
-  if (isApiProductCoreSignal(value)) return false;
   if (matches(value, ["成品号", "账号", "账户", "账密", "月卡", "会员", "直充", "代充", "卡密", "cdk"])) {
     return false;
   }
 
   return true;
+}
+
+function isChatGptSelfServiceRecharge(value: string): boolean {
+  if (isEmailOnlyForAiAccountSetup(value)) return false;
+  if (isMixedChatGptProTier(value)) return false;
+  if (isChatGptGoProduct(value) || isChatGptTeamDominant(value) || isChatGptPro20(value) || isChatGptPro5(value)) return false;
+  if (matches(value, ["gemini", "google ai", "claude", "grok", "perplexity", "telegram", "twitter", "x premium"])) return false;
+
+  const hasChatGptSignal = matches(value, ["chatgpt", "gpt", "openai", "plus", "kakao"]);
+  if (!hasChatGptSignal) return false;
+
+  return matches(value, [
+    "自助充值",
+    "自助开通",
+    "自助卡密",
+    "卡密自助",
+    "自助激活",
+    "自动充值",
+    "自动开通",
+    "自动激活",
+    "全自动充值",
+    "全自动开通",
+    "全自动激活",
+  ]);
 }
 
 function isChatGptPaymentLinkExtractionService(value: string): boolean {
@@ -2311,6 +2360,11 @@ function isChatGptPaymentLinkExtractionService(value: string): boolean {
 
   return matches(value, [
     "提链",
+    "提炼",
+    "提取链接",
+    "链接提取",
+    "长链提取",
+    "长链接提取",
     "扫码对接",
     "提取upi支付二维码",
     "提取 upi 支付二维码",

@@ -52,6 +52,7 @@ import { formatBeijingDateTimeLocalValue, parseBeijingDateTimeLocalValue } from 
 import { classifyOffer } from "@/lib/catalog";
 import { communityAssetDisplayUrl } from "@/lib/community-asset-url";
 import { safeExternalHttpUrl } from "@/lib/external-url";
+import { OFFER_FILTER_TAG_BY_ID, type OfferFilterTagId } from "@/lib/offer-filter-tags";
 import { shouldCreateFeedbackVerification } from "@/lib/trust-risk";
 import { groupWholesaleLeads } from "@/lib/wholesale";
 import {
@@ -748,6 +749,10 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
   const feedbackFilterCounts = useMemo(
     () => getFeedbackWorkFilterCounts(offerFeedback, filteredSiteFeedback, offerById),
     [filteredSiteFeedback, offerById, offerFeedback],
+  );
+  const categoryFeedbackOfferCount = useMemo(
+    () => countDistinctFeedbackOffers(offerFeedback.filter((item) => getOfferFeedbackBucket(item) === "category")),
+    [offerFeedback],
   );
   const pendingFeedbackCount = pendingOfferFeedbackCount + pendingSiteFeedbackCount;
   useEffect(() => {
@@ -3794,6 +3799,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                         {item.label}
                         <span className={feedbackFilter === item.value ? "text-white/70" : "text-[#adb3b4]"}>
                           {feedbackFilterCounts[item.value]}
+                          {item.value === "category" ? ` · ${categoryFeedbackOfferCount}报价` : ""}
                         </span>
                       </button>
                     ))}
@@ -5199,6 +5205,8 @@ function OfferFeedbackList({
           (item.productName ? productByKey.get(item.productName) : null);
         const currentProduct = matchedOffer?.canonicalProductId ? productByKey.get(matchedOffer.canonicalProductId) : null;
         const expectedProduct = item.expectedProductId ? productByKey.get(item.expectedProductId) : null;
+        const reportedFilterTag = feedbackFilterTagDefinition(item, "reportedFilterTagId");
+        const expectedFilterTag = feedbackFilterTagDefinition(item, "expectedFilterTagId");
         const sourceName = offerSourceLabel(matchedOffer, item);
         const sourceTitle = item.sourceTitle || matchedOffer?.sourceTitle || "未记录原始商品名";
         const offerUrl = item.offerUrl || matchedOffer?.url || null;
@@ -5417,7 +5425,12 @@ function OfferFeedbackList({
                 ) : null}
                 {isCategoryFeedback ? (
                   <p className="mt-2 rounded-lg bg-[#eef3f8] px-3 py-2 text-xs leading-5 text-[#47657a]">
-                    {expectedProduct ? `用户期望：${expectedProduct.displayName}。` : "用户未指定期望标准商品。"}
+                    {item.issueDimension === "filter_tag"
+                      ? [
+                          reportedFilterTag ? `错误标签：${reportedFilterTag.label}` : null,
+                          expectedFilterTag ? `期望标签：${expectedFilterTag.label}` : null,
+                        ].filter(Boolean).join("；") || "用户未指定具体标签。"
+                      : expectedProduct ? `用户期望：${expectedProduct.displayName}。` : "用户未指定期望标准商品。"}
                     {item.classificationVersion ? ` 提交规则：${item.classificationVersion}。` : ""}
                   </p>
                 ) : null}
@@ -10723,7 +10736,12 @@ function groupOfferFeedbackForDisplay(
     });
   }
 
-  return Array.from(groups.values());
+  return Array.from(groups.values()).sort((left, right) => {
+    if (right.items.length !== left.items.length) return right.items.length - left.items.length;
+    const leftCreatedAt = Math.max(...left.items.map((item) => Date.parse(item.createdAt) || 0));
+    const rightCreatedAt = Math.max(...right.items.map((item) => Date.parse(item.createdAt) || 0));
+    return rightCreatedAt - leftCreatedAt;
+  });
 }
 
 function offerFeedbackReasonSummary(feedback: OfferFeedback[]): string {
@@ -10794,6 +10812,19 @@ function getFeedbackWorkFilterCounts(
     other: offerFeedback.filter((item) => getOfferFeedbackBucket(item) === "other").length,
     site: siteFeedback.length,
   };
+}
+
+function countDistinctFeedbackOffers(feedback: OfferFeedback[]): number {
+  return new Set(feedback.map((item) => item.offerId).filter((offerId): offerId is string => Boolean(offerId))).size;
+}
+
+function feedbackFilterTagDefinition(
+  feedback: OfferFeedback,
+  key: "reportedFilterTagId" | "expectedFilterTagId",
+) {
+  const tagId = feedback.classificationResult?.[key];
+  if (typeof tagId !== "string") return null;
+  return OFFER_FILTER_TAG_BY_ID.get(tagId as OfferFilterTagId) || null;
 }
 
 function getOfferFeedbackVerdict(feedback: OfferFeedback, currentOffer: RawOffer | null | undefined): OfferFeedbackVerdict {

@@ -420,6 +420,20 @@ begin
     output := array_append(output, 'delivery_recharge');
   end if;
 
+  if text_value ~ '(提链|提炼|链接提取|提取链接|长链提取|长链接提取|支付链接提取|提取支付链接)' then
+    output := array_append(output, 'chatgpt_service_link');
+  end if;
+
+  if text_value !~ '(不包括扫码|不含扫码|无需扫码|不用扫码|非扫码服务)'
+    and text_value ~ '(扫码对接|代付代扫|代扫服务|支付二维码生成|二维码生成率|提取支付二维码|支付二维码提取)'
+  then
+    output := array_append(output, 'chatgpt_service_scan');
+  end if;
+
+  if text_value ~ '(自助充值|自助开通|自助卡密|卡密自助|自助激活|自动充值|自动开通|自动激活|全自动充值|全自动开通|全自动激活)' then
+    output := array_append(output, 'chatgpt_service_self_recharge');
+  end if;
+
   if text_value ~ '(未接码|未完成接码|没接码|未绑手机|未绑定手机|没绑手机|没绑定手机|未绑手机号|未绑定手机号|无手机绑定|无绑手机|自行接码|自己接码|需自行接码|需自己接码|需要自行接码|需要自己接码|需要接码|需接码|要接码|接码登录codex|codex.{0,12}(需|要|需要|自行|自己)接码)' then
     output := array_append(output, 'account_unverified');
   elsif text_value ~ '(已接码|已完成接码|已经接码|已手机接码|已绑手机|已绑定手机|已经绑手机|已经绑定手机|已绑手机号|已绑定手机号|带2fa|带二验|可二验)' then
@@ -1285,6 +1299,9 @@ as $$
       'web_only_account',
       'domestic_mirror_site',
       'delivery_recharge',
+      'chatgpt_service_link',
+      'chatgpt_service_scan',
+      'chatgpt_service_self_recharge',
       'delivery_account',
       'account_verified',
       'account_unverified',
@@ -2388,6 +2405,9 @@ as $$
       ('web_only_account', '网页号', 'web_only_account', false),
       ('domestic_mirror_site', '国内镜像站', 'domestic_mirror_site', false),
       ('delivery_recharge', '充值', 'delivery_recharge', false),
+      ('chatgpt_service_link', '提链', 'chatgpt_service_link', false),
+      ('chatgpt_service_scan', '扫码', 'chatgpt_service_scan', false),
+      ('chatgpt_service_self_recharge', '自助充值', 'chatgpt_service_self_recharge', false),
       ('delivery_account', '成品号', 'delivery_account', false),
       ('account_verified', '已接码成品号', 'account_verified', false),
       ('account_unverified', '未接码成品号', 'account_unverified', false),
