@@ -212,8 +212,8 @@ collector / snapshot refresh
 1. 将全局 Footer 的普通预取链接改为已有的 intent prefetch 模式，默认不自动发起 RSC。
 2. 调整匿名态 `/api/account/me`：优先从已有会话信号判断，没有登录线索时不请求；或在全局布局中只对需要账户状态的页面挂载。
 3. 按路径拆分 Worker 请求和 CPU 报表，至少区分 HTML、RSC、API、静态资源、账户接口。
-4. 针对伪装 Chrome 的分布式自动化建立组合规则，不依赖单个 UA 或 IP：请求头一致性、RSC 高频模式、ASN/国家、无 cookie、无正常导航链等信号组合。
-5. 先用 managed challenge 或小范围规则观测 24–48 小时，再逐步 block，明确放行搜索引擎、健康检查和自有采集器。
+
+WAF challenge / block 已明确延期，不纳入本轮实施。后续作为独立议题讨论规则信号、误伤边界和灰度方式，不与站内请求削减同时发布。
 
 验收：Worker requests 日均从约 `3M` 降到 `1–1.5M` 以下；真实用户核心页面错误率无明显上升。
 
@@ -262,7 +262,7 @@ collector / snapshot refresh
 | --- | --- | --- | --- | --- |
 | 关闭无意图自动预取 | 直接减少 RSC、Worker 请求和 CPU | 用户首次点击时才加载，导航可能略慢 | 低 | P0 立即做 |
 | 减少匿名 `/api/account/me` | 减少全站 API 请求与 Supabase 子请求 | 登录状态可能稍晚显示，处理不好会闪烁 | 低至中 | P0 立即做，保留会话提示 |
-| WAF challenge / block | 在 Worker 前过滤自动化流量，综合降请求、CPU 和 R2 | 可能误伤真实用户、搜索引擎或监控 | 中至高 | 小范围灰度，不一刀切 |
+| WAF challenge / block | 在 Worker 前过滤自动化流量，综合降请求、CPU 和 R2 | 可能误伤真实用户、搜索引擎或监控 | 中至高 | 暂缓，后续单独讨论 |
 | 关闭 cache hit 后的 lazy R2 回读 | 预计显著降低 R2 Class B | 跨区域缓存可能更旧，tag/SWR 一致性风险上升 | 低，故障时高 | P1 测试后灰度 |
 | 预计算 `model-index.v1` | 显著降低模型页 Worker CPU、payload 和浏览器计算 | 快照链路更复杂，数据有刷新延迟 | 低 | P1 推荐主方案 |
 | 单纯延长 ISR/TTL | 改动小、快速降低重建频率 | 价格和可用性更陈旧，不能减少 Worker 请求 | 中 | 只作辅助，不单独采用 |
@@ -301,6 +301,8 @@ collector / snapshot refresh
 **缓解方式：**使用非敏感的 session cookie 存在性或服务端布局状态作为“是否值得查询”的提示；为 Header 保留稳定尺寸的占位状态，避免布局位移。
 
 ### 8.3 WAF challenge / block 治理自动化流量
+
+**当前决策：暂不实施。** 本节仅保留为后续讨论依据，本轮不创建、不修改任何 WAF、challenge 或 rate limiting 规则。
 
 **优点：**
 
@@ -422,7 +424,7 @@ collector / snapshot refresh
 综合成本、用户体验和实施风险，推荐采用以下组合：
 
 1. 先关闭无意图预取并减少匿名账户探测。这两项收益明确，对用户体验影响最小。
-2. 同时做窄范围 WAF challenge，但把误伤率作为硬性回滚指标。
+2. WAF challenge / block 暂缓，后续单独评审误伤边界，不与本轮代码优化混合。
 3. 将 `model-index.v1` 预计算作为 `/api-transit/models` 的主优化，不依赖单纯延长 TTL。
 4. 对 lazy R2 回读先测试再灰度，因为它潜在收益大，但缓存一致性风险高于普通代码优化。
 5. 静态数据面用于匿名快照和资源，不承载登录态或任意动态查询。

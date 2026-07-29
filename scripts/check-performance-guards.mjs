@@ -403,6 +403,20 @@ assert(/prefetch=\{shouldPrefetch \? null : false\}/.test(intentPrefetchLinkText
 const siteHeaderText = read("src/components/SiteHeader.tsx");
 assert(/IntentPrefetchLink/.test(siteHeaderText), "src/components/SiteHeader.tsx: high-traffic module navigation must use intent-based prefetching.");
 
+const globalSiteFooterText = read("src/components/GlobalSiteFooter.tsx");
+assert(/IntentPrefetchLink/.test(globalSiteFooterText), "src/components/GlobalSiteFooter.tsx: global footer links must wait for user intent before prefetching.");
+
+const authButtonText = read("src/components/AuthButton.tsx");
+assert(/IntentPrefetchLink/.test(authButtonText), "src/components/AuthButton.tsx: login and account links must wait for user intent before prefetching.");
+
+const accountClientText = read("src/lib/account-client.ts");
+assert(/readAccountAuthHint\(\) === ["']anonymous["']/.test(accountClientText), "src/lib/account-client.ts: known anonymous browsers must skip repeated account probes.");
+
+for (const authRouteFile of ["src/app/auth/callback/route.ts", "src/app/auth/signout/route.ts"]) {
+  const text = read(authRouteFile);
+  assert(/ACCOUNT_AUTH_HINT_COOKIE/.test(text), `${authRouteFile}: auth transitions must keep the non-authoritative account hint synchronized.`);
+}
+
 for (const longListFile of [
   "src/components/PriceExplorer.tsx",
   "src/components/OfficialPricesExplorer.tsx",
