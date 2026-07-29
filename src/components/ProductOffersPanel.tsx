@@ -15,7 +15,7 @@ import { readSessionCache, writeSessionCache } from "@/lib/client-cache";
 import { useMediaQuery } from "@/lib/client-hooks";
 import { createTimeoutSignal, isGeneratedDatasetStale, newestUsableGeneratedDataset } from "@/lib/client-refresh";
 import { rewriteLdxpUrlHost } from "@/lib/ldxp-domain-settings-shared";
-import { trackOutboundEvent, withPriceAiUtm } from "@/lib/outbound-analytics-client";
+import { withPriceAiUtm } from "@/lib/outbound-analytics-client";
 import {
   MERCHANT_COLLECTOR_FILTERS,
   merchantCollectorFilterLogo,
@@ -1881,7 +1881,6 @@ function OfferExitNoticeDialog({ offer, onClose }: { offer: RawOffer; onClose: (
 
   function continueToOffer() {
     if (muteToday) muteOfferExitNoticeToday();
-    trackCardOfferOutbound(offer, isAvailable(offer));
     window.open(cardOfferOutboundUrl(offer), "_blank", "noopener,noreferrer");
     onClose();
   }
@@ -2184,7 +2183,6 @@ export function OfferLink({
             available,
           });
           if (isOfferExitNoticeMutedToday()) {
-            trackCardOfferOutbound(offer, available);
             return;
           }
           event.preventDefault();
@@ -2217,24 +2215,6 @@ function cardOfferOutboundUrl(offer: RawOffer): string {
     medium: "card_offer",
     campaign: "priceai_card_shop",
     content: offer.id,
-  });
-}
-
-function trackCardOfferOutbound(offer: RawOffer, available: boolean): void {
-  trackOutboundEvent({
-    eventType: "card_offer_click",
-    entityType: "card_offer",
-    entityId: offer.id,
-    offerId: offer.id,
-    sourceId: offer.sourceId || null,
-    productId: offer.canonicalProductId || offer.storedCanonicalProductId || null,
-    targetUrl: cardOfferOutboundUrl(offer),
-    metadata: {
-      available,
-      source_name: offer.sourceName,
-      collector_kind: offer.collectorKind || "",
-      status: offer.status,
-    },
   });
 }
 

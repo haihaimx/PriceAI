@@ -1201,7 +1201,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
           { id: "manual", label: "报价维护", count: null, icon: <Plus size={15} />, description: "调试补录报价和处理隐藏报价，作为排查工具而非长期维护入口。" },
           { id: "official", label: "官方价格", count: officialPrices.currentPrices.length || null, icon: <Database size={15} />, description: "维护官方订阅地区价、应用、计划、地区和采集日志。" },
           { id: "apiModels", label: "API 模型", count: apiModels.offers.length || null, icon: <TerminalSquare size={15} />, description: "维护官方 API 模型、供应商、套餐、报价和候选提交。" },
-          { id: "analytics", label: "数据分析", count: outboundAnalytics.totals.clicks30d || null, icon: <BarChart3 size={15} />, description: "查看商品、店铺、中转站和赞助位的第一方出站归因。" },
+          { id: "analytics", label: "数据分析", count: outboundAnalytics.totals.clicks30d || null, icon: <BarChart3 size={15} />, description: "查看赞助位的第一方点击归因。" },
         ],
       },
       {
@@ -5760,7 +5760,7 @@ function MessageBox({ message, onDismiss }: { message: Message; onDismiss?: () =
 function OutboundAnalyticsPanel({ analytics }: { analytics: OutboundAnalyticsData }) {
   return (
     <div className="space-y-4">
-      <Panel title="出站归因概览" icon={<BarChart3 size={17} />}>
+      <Panel title="赞助点击概览" icon={<BarChart3 size={17} />}>
         <div className="grid gap-px overflow-hidden rounded-lg border border-[#e4e9ea] bg-[#e4e9ea] sm:grid-cols-2 xl:grid-cols-4">
           <AnalyticsMetric label="30 天动作" value={analytics.totals.clicks30d} />
           <AnalyticsMetric label="7 天动作" value={analytics.totals.clicks7d} />
@@ -5789,7 +5789,7 @@ function OutboundAnalyticsPanel({ analytics }: { analytics: OutboundAnalyticsDat
             ))}
           </div>
         ) : (
-          <p className="text-sm leading-6 text-[#5a6061]">尚无出站事件。迁移上线后，商品、店铺、中转站和赞助位点击会在这里汇总。</p>
+          <p className="text-sm leading-6 text-[#5a6061]">尚无赞助点击事件。</p>
         )}
       </Panel>
 
@@ -5830,7 +5830,7 @@ function OutboundAnalyticsPanel({ analytics }: { analytics: OutboundAnalyticsDat
         ) : (
           <p className="text-sm leading-6 text-[#5a6061]">暂无可展示的归因对象。</p>
         )}
-        <p className="mt-3 text-xs leading-5 text-[#7a8587]">当前阶段只记录点击和优惠码复制，不包含曝光、支付或成交转化。</p>
+        <p className="mt-3 text-xs leading-5 text-[#7a8587]">当前只记录赞助点击，不包含普通商品、店铺、中转站、曝光、支付或成交转化。</p>
       </Panel>
     </div>
   );

@@ -20,10 +20,24 @@ assert.equal(withPriceAiUtm("mailto:test@example.com", { medium: "merchant_shop"
 const signedUrl = "https://example.com/buy?signature=abc123&expires=123456";
 assert.equal(withPriceAiUtm(signedUrl, { medium: "card_offer", campaign: "merchant" }), signedUrl);
 assert.doesNotThrow(() => trackOutboundEvent({
-  eventType: "card_offer_click",
-  entityType: "card_offer",
-  entityId: "offer-1",
+  eventType: "sponsor_click",
+  entityType: "sponsor",
+  entityId: "campaign-1",
 }));
+
+const route = readFileSync("src/app/api/outbound-events/route.ts", "utf8");
+assert.match(route, /eventType: z\.literal\("sponsor_click"\)/);
+assert.match(route, /entityType: z\.literal\("sponsor"\)/);
+
+const firstPartyConsumers = [
+  "src/components/ProductOffersPanel.tsx",
+  "src/components/PriceExplorer.tsx",
+  "src/components/TransitStationDetail.tsx",
+];
+for (const file of firstPartyConsumers) {
+  assert.doesNotMatch(readFileSync(file, "utf8"), /trackOutboundEvent/);
+}
+assert.match(readFileSync("src/components/SponsoredPlacementPreview.tsx", "utf8"), /trackOutboundEvent/);
 
 const migration = readFileSync(
   "supabase/migrations/20260729220000_outbound_analytics_events.sql",
@@ -36,5 +50,11 @@ assert.match(migration, /list_outbound_analytics_event_totals/);
 assert.match(migration, /grant insert on table public\.outbound_analytics_events to service_role/);
 assert.doesNotMatch(migration, /grant all on table public\.outbound_analytics_events/);
 assert.doesNotMatch(migration, /random\(\)/);
+
+const sponsorOnlyMigration = readFileSync(
+  "supabase/migrations/20260729233000_sponsor_only_outbound_analytics.sql",
+  "utf8",
+);
+assert.equal((sponsorOnlyMigration.match(/events\.event_type = 'sponsor_click'/g) || []).length, 3);
 
 console.log("outbound analytics tests passed");

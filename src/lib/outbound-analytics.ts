@@ -13,13 +13,9 @@ import type {
 } from "@/lib/types";
 
 export type RecordOutboundAnalyticsEventInput = {
-  eventType: OutboundAnalyticsEventType;
-  entityType: OutboundAnalyticsEntityType;
+  eventType: "sponsor_click";
+  entityType: "sponsor";
   entityId: string;
-  offerId?: string | null;
-  sourceId?: string | null;
-  productId?: string | null;
-  stationId?: string | null;
   placement?: string | null;
   creativeId?: string | null;
   campaignId?: string | null;
@@ -39,19 +35,8 @@ type TotalsRow = Record<string, unknown>;
 type EventTotalsRow = Record<string, unknown>;
 const WINDOW_DAYS = 30;
 const MAX_METADATA_KEYS = 16;
-const allowedEventTypes = new Set<OutboundAnalyticsEventType>([
-  "card_offer_click", "merchant_shop_click", "api_transit_outbound_click", "api_transit_coupon_copy", "sponsor_click",
-]);
-const allowedEntityTypes = new Set<OutboundAnalyticsEntityType>([
-  "card_offer", "merchant", "api_transit_station", "sponsor",
-]);
-const entityTypeByEvent: Record<OutboundAnalyticsEventType, OutboundAnalyticsEntityType> = {
-  card_offer_click: "card_offer",
-  merchant_shop_click: "merchant",
-  api_transit_outbound_click: "api_transit_station",
-  api_transit_coupon_copy: "api_transit_station",
-  sponsor_click: "sponsor",
-};
+const allowedEventTypes = new Set<OutboundAnalyticsEventType>(["sponsor_click"]);
+const allowedEntityTypes = new Set<OutboundAnalyticsEntityType>(["sponsor"]);
 
 export function getEmptyOutboundAnalyticsSummary(message = "尚未加载点击归因数据。"): OutboundAnalyticsSummary {
   const configured = Boolean(getSupabaseServerClient());
@@ -75,9 +60,8 @@ export async function recordOutboundAnalyticsEvent(
   const supabase = getSupabaseServerClient();
   if (!supabase) return { recorded: false, configured: false, tableReady: false };
   if (
-    !allowedEventTypes.has(input.eventType) ||
-    !allowedEntityTypes.has(input.entityType) ||
-    entityTypeByEvent[input.eventType] !== input.entityType
+    input.eventType !== "sponsor_click" ||
+    input.entityType !== "sponsor"
   ) {
     throw new Error("Invalid outbound analytics event type.");
   }
@@ -91,10 +75,6 @@ export async function recordOutboundAnalyticsEvent(
     event_type: resolved.eventType,
     entity_type: resolved.entityType,
     entity_id: resolved.entityId,
-    offer_id: compactText(resolved.offerId, 200),
-    source_id: compactText(resolved.sourceId, 200),
-    product_id: compactText(resolved.productId, 200),
-    station_id: compactText(resolved.stationId, 200),
     placement: compactText(resolved.placement, 160),
     creative_id: compactText(resolved.creativeId, 200),
     campaign_id: compactText(resolved.campaignId, 200),
@@ -124,73 +104,6 @@ async function resolveKnownOutboundEvent(
 ): Promise<ResolvedOutboundAnalyticsEvent> {
   const supabase = getSupabaseServerClient();
   if (!supabase) throw new Error("Supabase is not configured.");
-
-  if (input.eventType === "card_offer_click") {
-    const { data, error } = await supabase
-      .from("raw_offers")
-      .select("id,source_id,canonical_product_id,url")
-      .eq("id", input.entityId)
-      .eq("hidden", false)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) throw new PublicRequestError("报价已不存在或不可归因。", 400);
-    return {
-      ...input,
-      entityId: String(data.id),
-      offerId: String(data.id),
-      sourceId: stringValue(data.source_id),
-      productId: stringValue(data.canonical_product_id),
-      targetUrl: validatedTargetUrl(input.targetUrl, [stringValue(data.url)]),
-      metadata: pickMetadata(input.eventType, input.metadata),
-    };
-  }
-
-  if (input.eventType === "merchant_shop_click") {
-    const { data, error } = await supabase
-      .from("sources")
-      .select("id,entry_url")
-      .eq("id", input.entityId)
-      .eq("enabled", true)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) throw new PublicRequestError("店铺已不存在或不可归因。", 400);
-    return {
-      ...input,
-      entityId: String(data.id),
-      sourceId: String(data.id),
-      targetUrl: validatedTargetUrl(input.targetUrl, [stringValue(data.entry_url)]),
-      metadata: pickMetadata(input.eventType, input.metadata),
-    };
-  }
-
-  if (input.eventType === "api_transit_outbound_click" || input.eventType === "api_transit_coupon_copy") {
-    const { data, error } = await supabase
-      .from("api_transit_stations")
-      .select("id,website_url,commercial_offers")
-      .eq("id", input.entityId)
-      .eq("published", true)
-      .is("removed_at", null)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) throw new PublicRequestError("中转站已不存在或不可归因。", 400);
-    const offers = Array.isArray(data.commercial_offers)
-      ? data.commercial_offers.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
-      : [];
-    const requestedCampaign = compactText(input.campaignId, 200);
-    const offer = offers.find((item) => stringValue(item.id) === requestedCampaign) || null;
-    if (input.eventType === "api_transit_coupon_copy" && (!offer || !stringValue(offer.code))) {
-      throw new PublicRequestError("优惠码已不存在或不可归因。", 400);
-    }
-    const knownTargets = [stringValue(offer?.url), stringValue(data.website_url)];
-    return {
-      ...input,
-      entityId: String(data.id),
-      stationId: String(data.id),
-      campaignId: offer ? stringValue(offer.id) : null,
-      targetUrl: validatedTargetUrl(input.targetUrl, knownTargets),
-      metadata: pickMetadata(input.eventType, input.metadata),
-    };
-  }
 
   const settings = await getSponsorSettingsSummary();
   for (const [placement, config] of Object.entries(settings.placements)) {
@@ -237,15 +150,11 @@ function validatedTargetUrl(preferred: string | null | undefined, candidates: Ar
   }
 }
 
-const metadataKeysByEvent: Record<OutboundAnalyticsEventType, ReadonlySet<string>> = {
-  card_offer_click: new Set(["available", "source_name", "collector_kind", "status"]),
-  merchant_shop_click: new Set(["name", "collector_kind", "product_count", "offer_count"]),
-  api_transit_outbound_click: new Set(["station_slug", "station_name", "is_aff", "outbound_label", "commercial_offer_id", "commercial_relation"]),
-  api_transit_coupon_copy: new Set(["station_slug", "station_name", "commercial_offer_id", "commercial_offer_type", "coupon_code_length"]),
+const metadataKeysByEvent: Record<RecordOutboundAnalyticsEventInput["eventType"], ReadonlySet<string>> = {
   sponsor_click: new Set(["placement_id", "sponsor_name", "path"]),
 };
 
-function pickMetadata(eventType: OutboundAnalyticsEventType, value: Record<string, unknown> | null | undefined): Record<string, unknown> {
+function pickMetadata(eventType: RecordOutboundAnalyticsEventInput["eventType"], value: Record<string, unknown> | null | undefined): Record<string, unknown> {
   const allowedKeys = metadataKeysByEvent[eventType];
   return Object.fromEntries(Object.entries(value || {}).filter(([key]) => allowedKeys.has(key)));
 }

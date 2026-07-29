@@ -25,7 +25,7 @@ import { TransitLatencyBadge } from "@/components/TransitLatencyBadge";
 import { TransitPriceBreakdown } from "@/components/TransitPriceBreakdown";
 import { TransitStationSystemIcon } from "@/components/TransitStationSystemIcon";
 import { useMediaQuery } from "@/lib/client-hooks";
-import { trackOutboundEvent, withPriceAiUtm } from "@/lib/outbound-analytics-client";
+import { withPriceAiUtm } from "@/lib/outbound-analytics-client";
 import { formatDateDay, formatDateMinute, formatDateShortMinute } from "@/lib/utils";
 import type {
   TransitCommercialOffer,
@@ -192,23 +192,21 @@ export default function TransitStationDetail({ station, children }: Props) {
       await navigator.clipboard.writeText(code);
       setCopiedOfferId(offerId);
       window.setTimeout(() => setCopiedOfferId(null), 1600);
-      trackTransitCouponCopy(station, commercialOffers.find((item) => item.id === offerId) || null, code);
     } catch {
       setCopiedOfferId(null);
     }
-  }, [commercialOffers, station]);
+  }, []);
 
   const requestOutboundVisit = useCallback(
     (event: MouseEvent<HTMLAnchorElement>, intent: TransitOutboundIntent) => {
       if (hasValidRiskConfirmation(station.slug, intent.url)) {
-        trackTransitOutboundClick(station, intent, outboundOffer);
         return;
       }
       event.preventDefault();
       setRememberRiskConfirmation(false);
       setPendingOutbound(intent);
     },
-    [outboundOffer, station],
+    [station.slug],
   );
 
   const closeOutboundRiskDialog = useCallback(() => {
@@ -222,10 +220,9 @@ export default function TransitStationDetail({ station, children }: Props) {
     if (rememberRiskConfirmation) {
       writeRiskConfirmation(station.slug, targetUrl);
     }
-    trackTransitOutboundClick(station, pendingOutbound, outboundOffer);
     closeOutboundRiskDialog();
     window.open(targetUrl, "_blank", "noopener,noreferrer");
-  }, [closeOutboundRiskDialog, outboundOffer, pendingOutbound, rememberRiskConfirmation, station]);
+  }, [closeOutboundRiskDialog, pendingOutbound, rememberRiskConfirmation, station.slug]);
 
   return (
     <div className="pb-16 sm:pb-14">
@@ -760,47 +757,6 @@ function transitOutboundUrl(station: TransitStation, value: string, offer: Trans
     medium: "api_transit",
     campaign: "priceai_api_transit",
     content: offer?.id || station.slug,
-  });
-}
-
-function trackTransitOutboundClick(
-  station: TransitStation,
-  intent: TransitOutboundIntent,
-  offer: TransitCommercialOffer | null,
-): void {
-  trackOutboundEvent({
-    eventType: "api_transit_outbound_click",
-    entityType: "api_transit_station",
-    entityId: station.id,
-    stationId: station.id,
-    campaignId: offer?.id || null,
-    targetUrl: intent.url,
-    metadata: {
-      station_slug: station.slug,
-      station_name: station.name,
-      is_aff: intent.isAff,
-      outbound_label: intent.label || "",
-      commercial_offer_id: intent.offerId || offer?.id || "",
-      commercial_relation: station.commercialRelation,
-    },
-  });
-}
-
-function trackTransitCouponCopy(station: TransitStation, offer: TransitCommercialOffer | null, code: string): void {
-  trackOutboundEvent({
-    eventType: "api_transit_coupon_copy",
-    entityType: "api_transit_station",
-    entityId: station.id,
-    stationId: station.id,
-    campaignId: offer?.id || null,
-    targetUrl: offer?.url ? transitOutboundUrl(station, offer.url, offer) : station.websiteUrl,
-    metadata: {
-      station_slug: station.slug,
-      station_name: station.name,
-      commercial_offer_id: offer?.id || "",
-      commercial_offer_type: offer?.type || "",
-      coupon_code_length: code.length,
-    },
   });
 }
 

@@ -7,27 +7,14 @@ import {
   PublicRequestError,
   readJsonWithLimit,
 } from "@/lib/public-request";
-import { outboundAnalyticsEntityTypes, outboundAnalyticsEventTypes } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const entityTypeByEvent = {
-  card_offer_click: "card_offer",
-  merchant_shop_click: "merchant",
-  api_transit_outbound_click: "api_transit_station",
-  api_transit_coupon_copy: "api_transit_station",
-  sponsor_click: "sponsor",
-} as const;
-
 const eventSchema = z.object({
-  eventType: z.enum(outboundAnalyticsEventTypes),
-  entityType: z.enum(outboundAnalyticsEntityTypes),
+  eventType: z.literal("sponsor_click"),
+  entityType: z.literal("sponsor"),
   entityId: z.string().trim().min(1).max(200),
-  offerId: z.string().trim().max(200).nullable().optional(),
-  sourceId: z.string().trim().max(200).nullable().optional(),
-  productId: z.string().trim().max(200).nullable().optional(),
-  stationId: z.string().trim().max(200).nullable().optional(),
   placement: z.string().trim().max(160).nullable().optional(),
   creativeId: z.string().trim().max(200).nullable().optional(),
   campaignId: z.string().trim().max(200).nullable().optional(),
@@ -36,10 +23,6 @@ const eventSchema = z.object({
   referrerPath: z.string().trim().max(500).nullable().optional(),
   sessionId: z.string().trim().max(120).nullable().optional(),
   metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).nullable().optional(),
-}).superRefine((value, context) => {
-  if (entityTypeByEvent[value.eventType] !== value.entityType) {
-    context.addIssue({ code: "custom", path: ["entityType"], message: "事件和归因对象不匹配。" });
-  }
 });
 
 export async function POST(request: Request) {

@@ -1,15 +1,9 @@
 "use client";
 
-import type { OutboundAnalyticsEntityType, OutboundAnalyticsEventType } from "@/lib/types";
-
 type TrackOutboundEventInput = {
-  eventType: OutboundAnalyticsEventType;
-  entityType: OutboundAnalyticsEntityType;
+  eventType: "sponsor_click";
+  entityType: "sponsor";
   entityId: string;
-  offerId?: string | null;
-  sourceId?: string | null;
-  productId?: string | null;
-  stationId?: string | null;
   placement?: string | null;
   creativeId?: string | null;
   campaignId?: string | null;
