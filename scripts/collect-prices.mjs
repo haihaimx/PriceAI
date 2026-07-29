@@ -665,6 +665,10 @@ export {
   createShopApiVisitorId,
   closeShopApiProxyReusePool,
   discardShopApiProxyReuseForTarget,
+  collectDujiaoProducts,
+  collectGenericHtml,
+  collectGenericHtmlProductCards,
+  collectKamiItems,
   collectTargetWithRetries,
   extractProxyLeaseFromPayload,
   isDailyProbeFailure,
@@ -673,8 +677,11 @@ export {
   isShopApiExitErrorMessage,
   isShopApiProxyTransportErrorMessage,
   isLdxpFailoverErrorMessage,
+  isGenericProductDetailHref,
+  kamiInventoryFromStock,
   normalizeLdxpRuntimeSettings,
   normalizeShopApiItemOfferUrl,
+  nextStorefrontLowestAvailableSpec,
   latestShopCollectionCrawlRunBySource,
   listShopCollectionPriceStats,
   rewriteLdxpUrlHost,
@@ -742,7 +749,7 @@ async function collectTarget(target, options = {}) {
   if (target.kind === "unicornHtml") return collectUnicornHtml(target, options);
   if (target.kind === "mooncakeCatalog") return collectMooncakeCatalog(target);
   if (target.kind === "blackcatWholesale") return collectBlackcatWholesale(target);
-  if (target.kind === "genericHtml") return collectGenericHtml(target);
+  if (target.kind === "genericHtml") return collectGenericHtml(target, options);
 
   throw new Error(`Unsupported collector kind: ${target.kind}`);
 }
@@ -842,32 +849,7 @@ async function collectKamiLike(target, options = {}) {
     const items = Array.isArray(payload.data) ? payload.data : [];
     if (!items.length) break;
 
-    for (const item of items) {
-      const title = cleanText(item.name);
-      const price = numberOrNull(item.user_price ?? item.price);
-      if (!title || price === null || isNonComparableTitle(title)) continue;
-
-      const stockCount = numberOrNull(item.stock);
-      const hidden = Number(item.hide || 0) !== 0;
-      const disabled = Number(item.status ?? 1) !== 1 || hidden;
-      const status = disabled ? "out_of_stock" : statusFromStock(stockCount);
-      const categoryName = cleanText(item.category?.name || "");
-
-      offers.push(
-        makeOffer(target, {
-          title,
-          price,
-          status,
-          stockCount,
-          url: kamiCommodityUrl(target, item.id),
-          tags: compact([
-            categoryName,
-            item.delivery_way === 0 ? "自动发货" : null,
-            hidden ? "隐藏商品" : null,
-          ]),
-        }),
-      );
-    }
+    offers.push(...collectKamiItems(target, items));
 
     if (items.length < 100) break;
   }
@@ -875,9 +857,55 @@ async function collectKamiLike(target, options = {}) {
   return offers;
 }
 
+function collectKamiItems(target, items) {
+  const offers = [];
+
+  for (const item of items) {
+    const title = cleanText(item.name);
+    const price = numberOrNull(item.user_price ?? item.price);
+    if (!title || price === null || isNonComparableTitle(title)) continue;
+
+    const inventory = kamiInventoryFromStock(item.stock);
+    const hidden = Number(item.hide || 0) !== 0;
+    const disabled = Number(item.status ?? 1) !== 1 || hidden;
+    const status = disabled ? "out_of_stock" : inventory.status;
+    const categoryName = cleanText(item.category?.name || "");
+
+    offers.push(
+      makeOffer(target, {
+        title,
+        price,
+        status,
+        stockCount: disabled && inventory.stockCount === null ? 0 : inventory.stockCount,
+        url: kamiCommodityUrl(target, item.id),
+        tags: compact([
+          categoryName,
+          item.delivery_way === 0 ? "自动发货" : null,
+          hidden ? "隐藏商品" : null,
+        ]),
+      }),
+    );
+  }
+
+  return offers;
+}
+
+function kamiInventoryFromStock(value) {
+  const text = cleanText(value);
+  const stockCount = numberOrNull(value);
+  if (stockCount !== null) return { stockCount, status: statusFromStock(stockCount) };
+  if (/即将售罄|库存紧张|库存较少/.test(text)) return { stockCount: null, status: "low_stock" };
+  if (/已售罄|^售罄$|缺货|无货/.test(text)) return { stockCount: 0, status: "out_of_stock" };
+  return { stockCount: null, status: "in_stock" };
+}
+
 async function collectDujiaoNext(target) {
   const payload = await fetchJson(`${target.baseUrl}/api/v1/public/products`);
   const products = Array.isArray(payload.data) ? payload.data : [];
+  return collectDujiaoProducts(target, products);
+}
+
+function collectDujiaoProducts(target, products) {
   const offers = [];
 
   for (const product of products) {
@@ -2594,11 +2622,15 @@ function decodeKnownEncryptedHtml(html) {
   }
 }
 
-async function collectGenericHtml(target) {
-  const rawHtml = await fetchText(target.sourceUrl);
+async function collectGenericHtml(target, options = {}) {
+  const requestText = options.fetchText || fetchText;
+  const rawHtml = await requestText(target.sourceUrl);
   const html = decodeKnownEncryptedHtml(rawHtml) || rawHtml;
   const cardOffers = collectGenericHtmlProductCards(target, html);
-  if (cardOffers.length >= 2) return dedupeOffers(cardOffers).slice(0, 200);
+  if (cardOffers.length) {
+    const enrichedOffers = await enrichGenericStartingPriceOffers(target, cardOffers, requestText);
+    return dedupeOffers(enrichedOffers).slice(0, 200);
+  }
 
   const pageTitle = cleanPageTitle(html);
   const text = stripHtml(html)
@@ -2636,7 +2668,7 @@ async function collectGenericHtml(target) {
         price,
         status: soldOut ? "out_of_stock" : statusFromStock(stockCount),
         stockCount: soldOut ? 0 : stockCount,
-        url: `${target.sourceUrl.replace(/#.*$/, "")}#offer-${offers.length + 1}`,
+        url: target.sourceUrl.replace(/#.*$/, ""),
         tags: compact([
           /自动发货/.test(context) ? "自动发货" : null,
           /人工/.test(context) ? "人工处理" : null,
@@ -2647,7 +2679,7 @@ async function collectGenericHtml(target) {
     if (singleProductPage) break;
   }
 
-  return dedupeOffers(offers).slice(0, 200);
+  return singleProductPage ? dedupeOffers(offers).slice(0, 1) : [];
 }
 
 function collectGenericHtmlProductCards(target, html) {
@@ -2665,6 +2697,7 @@ function collectGenericHtmlProductCards(target, html) {
     const stockCount = stockFromGenericContext(context);
     const soldOut = /缺货|已售罄|售罄|无货/.test(context) || stockCount === 0;
     const detailUrl = genericProductCardUrl(card, target);
+    if (!detailUrl) continue;
 
     offers.push(
       makeOffer(target, {
@@ -2673,12 +2706,12 @@ function collectGenericHtmlProductCards(target, html) {
         status: soldOut ? "out_of_stock" : statusFromStock(stockCount),
         stockCount: soldOut ? 0 : stockCount,
         url: detailUrl,
-        tags: compact([
+        tags: Array.from(new Set(compact([
           ...genericProductCardTags(card),
           /自动发货/.test(context) ? "自动发货" : null,
           /人工/.test(context) ? "人工处理" : null,
           "商品卡片解析",
-        ]),
+        ]))),
       }),
     );
   }
@@ -2704,7 +2737,73 @@ function extractGenericProductCards(html) {
     }
   }
 
+  for (const card of extractBalancedHtmlElementsByClass(source, "div", ["group/card"])) {
+    if (seen.has(card)) continue;
+    seen.add(card);
+    cards.push(card);
+  }
+
+  for (const match of source.matchAll(/<a\b([^>]*)>[\s\S]*?<\/a>/gi)) {
+    const card = match[0];
+    const href = match[1].match(/\bhref=["']([^"']+)["']/i)?.[1] || "";
+    if (!isGenericProductDetailHref(href) || priceFromGenericProductCard(card) === null || seen.has(card)) continue;
+    seen.add(card);
+    cards.push(card);
+  }
+
   return cards;
+}
+
+function extractBalancedHtmlElementsByClass(html, tagName, requiredClassFragments) {
+  const source = String(html || "");
+  const tagPattern = new RegExp(`<\\/?${escapeRegExp(tagName)}\\b[^>]*>`, "gi");
+  const output = [];
+  let start = -1;
+  let depth = 0;
+
+  for (const match of source.matchAll(tagPattern)) {
+    const tag = match[0];
+    const closing = /^<\//.test(tag);
+    if (start < 0) {
+      if (closing) continue;
+      const className = tag.match(/\bclass=["']([^"']+)["']/i)?.[1] || "";
+      if (!requiredClassFragments.some((fragment) => className.includes(fragment))) continue;
+      start = match.index;
+      depth = 1;
+      continue;
+    }
+
+    depth += closing ? -1 : 1;
+    if (depth !== 0) continue;
+    output.push(source.slice(start, match.index + tag.length));
+    start = -1;
+  }
+
+  return output;
+}
+
+function isGenericProductDetailHref(value, baseUrl = "https://priceai.invalid") {
+  const href = decodeHtmlEntities(value).trim();
+  if (!href || /^(?:javascript:|#)/i.test(href)) return false;
+
+  try {
+    const parsed = new URL(href, baseUrl);
+    if (/\/(?:product|products|checkout|buy|item|goods|post)\/[^/?#]+/i.test(parsed.pathname)) return true;
+    if (/\/(?:product|products|checkout|buy|item|goods|post)\/?$/i.test(parsed.pathname) && parsed.searchParams.get("id")) {
+      return true;
+    }
+    if (
+      normalizeHostname(parsed.href) === "woaimaihao.com" &&
+      /^\/[a-z0-9]+(?:-[a-z0-9]+)*\/?$/i.test(parsed.pathname) &&
+      !/^\/(?:login|products?|orders?|blog|tutorials?|redeem|accounts?|cart|checkout|chatgpt|claude|gemini|grok)\/?$/i.test(parsed.pathname)
+    ) {
+      return true;
+    }
+    return ["post", "product", "product_id", "goods", "goods_id", "item", "item_id"]
+      .some((key) => Boolean(parsed.searchParams.get(key)));
+  } catch {
+    return false;
+  }
 }
 
 function priceFromGenericProductCard(card) {
@@ -2745,8 +2844,47 @@ function titleFromGenericProductCard(card) {
     card.match(/<p[^>]+class=["'][^"']*(?:highlight|subtitle|summary|description)[^"']*["'][^>]*>([\s\S]*?)<\/p>/i)?.[1],
   );
   const description = genericProductCardParagraphs(card).find((paragraph) => paragraph !== highlight) || "";
+  const fallback = titleFromGenericProductCardText(card);
+  const parts = compact([namedTitle || titleAttr || heading || imageAlt || fallback, highlight, description]);
+  const uniqueParts = [];
 
-  return compact([namedTitle || titleAttr || heading || imageAlt, highlight, description]).join(" ").slice(0, 180);
+  for (const part of parts) {
+    const key = genericProductTitlePartKey(part);
+    if (!key || uniqueParts.some((existing) => {
+      const existingKey = genericProductTitlePartKey(existing);
+      return existingKey === key || existingKey.includes(key) || key.includes(existingKey);
+    })) continue;
+    uniqueParts.push(part);
+  }
+
+  return uniqueParts.join(" ").slice(0, 180);
+}
+
+function genericProductTitlePartKey(value) {
+  return cleanText(value)
+    .replace(/[（(]\s*购买\s*[）)]/g, "")
+    .replace(/(?:立即购买|查看详情|购买)/g, "")
+    .replace(/[\s|｜·,，。.!！?？:：;；_-]+/g, "")
+    .toLowerCase();
+}
+
+function titleFromGenericProductCardText(card) {
+  const text = stripHtml(card);
+  const priceIndexCandidates = [
+    text.search(CURRENCY_PRICE_RE),
+    text.search(SUFFIX_PRICE_RE),
+    text.search(/\bPRICE\s+\d/i),
+  ].filter((index) => index >= 0);
+  const priceIndex = priceIndexCandidates.length ? Math.min(...priceIndexCandidates) : text.length;
+
+  return cleanText(text.slice(0, priceIndex))
+    .split(/\s+(?:库存|销量|已售)\s*[:：]?/)[0]
+    .replace(/^(?:缺货|已售罄|售罄|自动发货|人工发货|手工发货)\s*/g, "")
+    .replace(/\s*(?:自动发货|人工发货|手工发货)\s*$/g, "")
+    .replace(/[（(]\s*购买\s*[）)]\s*$/g, "")
+    .replace(/\s*(?:立即购买|查看详情|购买)\s*$/g, "")
+    .trim()
+    .slice(0, 180);
 }
 
 function genericClassText(card, classNames) {
@@ -2766,20 +2904,139 @@ function genericProductCardParagraphs(card) {
 
 function genericProductCardTags(card) {
   const tagBlock = card.match(/<div[^>]+class=["'][^"']*(?:tags|category|badge)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] || "";
-  return [...tagBlock.matchAll(/<span[^>]*>([\s\S]*?)<\/span>/gi)]
+  const tags = [...tagBlock.matchAll(/<span[^>]*>([\s\S]*?)<\/span>/gi)]
     .map((match) => cleanText(match[1]))
     .filter(Boolean)
     .slice(0, 4);
+  if (/>(?:\s|<!--.*?-->)*起(?:\s|<!--.*?-->)*</is.test(card)) tags.push("起售价");
+  return tags;
+}
+
+async function enrichGenericStartingPriceOffers(target, offers, requestText) {
+  const output = [];
+
+  for (const offer of offers) {
+    if (!offer.tags?.includes("起售价")) {
+      output.push(offer);
+      continue;
+    }
+
+    try {
+      const detailHtml = await requestText(offer.url);
+      const inventory = nextStorefrontLowestAvailableSpec(detailHtml);
+      if (!inventory) continue;
+
+      const pricing = applySourceBuyerFeePolicy(target, { price: inventory.price });
+      output.push({
+        ...offer,
+        ...pricing,
+        stockCount: inventory.stockCount,
+        status: inventory.status,
+        tags: Array.from(new Set(compact([...offer.tags, "最低在售规格"]))),
+      });
+    } catch {
+      // A starting price without a confirmed purchasable spec is not safe to publish.
+    }
+  }
+
+  return output;
+}
+
+function nextStorefrontLowestAvailableSpec(html) {
+  const product = extractNextFlightJsonValue(html, "product");
+  const specs = Array.isArray(product?.specs) ? product.specs : [];
+  if (!specs.length) return null;
+
+  const available = specs
+    .map((spec) => ({
+      price: numberOrNull(spec?.price),
+      stockCount: numberOrNull(spec?.stock_available),
+    }))
+    .filter((spec) => spec.price !== null && spec.stockCount !== null && spec.stockCount > 0)
+    .sort((left, right) => left.price - right.price);
+
+  if (available.length) {
+    return {
+      price: available[0].price,
+      stockCount: available[0].stockCount,
+      status: statusFromStock(available[0].stockCount),
+    };
+  }
+
+  const prices = specs.map((spec) => numberOrNull(spec?.price)).filter((price) => price !== null);
+  if (!prices.length) return null;
+  return { price: Math.min(...prices), stockCount: 0, status: "out_of_stock" };
+}
+
+function extractNextFlightJsonValue(html, key) {
+  const payload = [...String(html || "").matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)]
+    .map((match) => {
+      try {
+        const argument = match[1].match(/^\s*self\.__next_f\.push\(([\s\S]*)\)\s*$/)?.[1];
+        if (!argument) return "";
+        const chunk = JSON.parse(argument);
+        return typeof chunk?.[1] === "string" ? chunk[1] : "";
+      } catch {
+        return "";
+      }
+    })
+    .join("\n");
+  const marker = `"${key}":`;
+  let offset = 0;
+
+  while (offset < payload.length) {
+    const markerIndex = payload.indexOf(marker, offset);
+    if (markerIndex < 0) return null;
+    const start = payload.slice(markerIndex + marker.length).search(/[\[{]/);
+    if (start < 0) return null;
+    const valueStart = markerIndex + marker.length + start;
+    const valueText = balancedJsonValueAt(payload, valueStart);
+    if (valueText) {
+      try {
+        return JSON.parse(valueText);
+      } catch {
+        // Continue to the next matching key in the Flight payload.
+      }
+    }
+    offset = markerIndex + marker.length;
+  }
+
+  return null;
+}
+
+function balancedJsonValueAt(text, start) {
+  const opening = text[start];
+  const closing = opening === "{" ? "}" : opening === "[" ? "]" : null;
+  if (!closing) return null;
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+
+  for (let index = start; index < text.length; index += 1) {
+    const character = text[index];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') quoted = false;
+      continue;
+    }
+    if (character === '"') {
+      quoted = true;
+      continue;
+    }
+    if (character === opening) depth += 1;
+    if (character === closing) depth -= 1;
+    if (depth === 0) return text.slice(start, index + 1);
+  }
+
+  return null;
 }
 
 function genericProductCardUrl(card, target) {
   const hrefs = [...card.matchAll(/href=["']([^"']+)["']/gi)].map((match) => match[1]);
-  const preferred =
-    hrefs.find((href) => /\/products?\//i.test(href)) ||
-    hrefs.find((href) => /\/(?:checkout|buy|item|goods)\//i.test(href)) ||
-    hrefs.find(Boolean);
+  const preferred = hrefs.find((href) => isGenericProductDetailHref(href, target.baseUrl));
 
-  return absolutize(preferred || `${target.sourceUrl.replace(/#.*$/, "")}#offer-${Math.max(1, hrefs.length)}`, target.baseUrl);
+  return preferred ? absolutize(preferred, target.baseUrl) : null;
 }
 
 function titleFromGenericSegment(value, price = null) {
@@ -6323,6 +6580,7 @@ function decodeHtmlEntities(value) {
     .replace(/&#039;/g, `'`)
     .replace(/&apos;/gi, `'`)
     .replace(/&amp;/gi, "&")
+    .replace(/&yen;/gi, "¥")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">");
 }
