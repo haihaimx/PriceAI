@@ -32,6 +32,7 @@ const {
   isShopApiProxyTransportErrorMessage,
   isLdxpFailoverErrorMessage,
   isGenericProductDetailHref,
+  isEmptyResultFullSnapshotTarget,
   kamiInventoryFromStock,
   latestShopCollectionCrawlRunBySource,
   listShopCollectionPriceStats,
@@ -56,6 +57,12 @@ const {
   selectShopApiPreferredChannel,
   selectBuiltinTargets,
 } = await import("./collect-prices.mjs");
+const {
+  hasSellableOffers,
+  legacyFailureObservationInterval,
+  nextSourceAvailabilityObservation,
+  outOfStockObservationSchedule,
+} = await import("./out-of-stock-observation.mjs");
 
 const genericTarget = {
   sourceId: "generic-source",
@@ -247,6 +254,84 @@ assert.equal(isWeeklyProbeFailure("No shop token found", 3), true);
 assert.equal(isWeeklyProbeFailure("未知采集器错误", 3), true);
 assert.equal(isWeeklyProbeFailure("HTTP 404 from source", 2), false);
 assert.equal(isWeeklyProbeFailure("店铺接口正常，完整商品快照为空（goods_count=0）。", 3), false);
+assert.equal(legacyFailureObservationInterval("HTTP 403 challenge", 3), null);
+assert.equal(legacyFailureObservationInterval("采集结果为空。", 4), null);
+assert.equal(legacyFailureObservationInterval("店铺接口正常，完整商品快照为空（goods_count=0）。", 3), 24 * 60);
+assert.equal(legacyFailureObservationInterval("HTTP 404 from source", 3), 7 * 24 * 60);
+
+const observationNow = Date.parse("2026-07-29T12:00:00.000Z");
+assert.deepEqual(
+  outOfStockObservationSchedule({
+    availabilityStatus: "out_of_stock",
+    outOfStockSince: "2026-07-29T06:00:00.000Z",
+    consecutiveOutOfStockSnapshots: 1,
+    collectionGroup: "vip_15m",
+  }, observationNow),
+  { tier: "out_of_stock_watch_1h", intervalMinutes: 60, reason: "VIP 来源刚确认缺货，按 1 小时观察补货" },
+);
+assert.equal(outOfStockObservationSchedule({
+  availability_status: "out_of_stock",
+  out_of_stock_since: "2026-07-28T06:00:00.000Z",
+  consecutive_out_of_stock_snapshots: 2,
+  collection_group: "automatic",
+}, observationNow)?.tier, "out_of_stock_watch_6h");
+assert.equal(outOfStockObservationSchedule({
+  availabilityStatus: "out_of_stock",
+  outOfStockSince: "2026-07-25T06:00:00.000Z",
+  consecutiveOutOfStockSnapshots: 3,
+  collectionGroup: "automatic",
+}, observationNow)?.tier, "daily_probe");
+assert.equal(outOfStockObservationSchedule({
+  availabilityStatus: "out_of_stock",
+  outOfStockSince: "2026-07-01T06:00:00.000Z",
+  consecutiveOutOfStockSnapshots: 12,
+  collectionGroup: "automatic",
+}, observationNow)?.tier, "weekly_probe");
+assert.equal(outOfStockObservationSchedule({
+  availabilityStatus: "out_of_stock",
+  outOfStockSince: "2026-07-01T06:00:00.000Z",
+  consecutiveOutOfStockSnapshots: 12,
+  collectionGroup: "vip_15m",
+}, observationNow)?.tier, "daily_probe");
+assert.equal(outOfStockObservationSchedule({ availabilityStatus: "available" }, observationNow), null);
+assert.equal(hasSellableOffers([]), false);
+assert.equal(hasSellableOffers([
+  { status: "out_of_stock", stockCount: 0 },
+  { status: "low_stock", stockCount: 0 },
+]), false);
+assert.equal(hasSellableOffers([
+  { status: "out_of_stock", stockCount: 0 },
+  { status: "in_stock", stockCount: 1 },
+]), true);
+assert.deepEqual(nextSourceAvailabilityObservation({
+  out_of_stock_since: "2026-07-29T06:00:00.000Z",
+  consecutive_out_of_stock_snapshots: 2,
+}, "2026-07-29T12:00:00.000Z", false), {
+  availability_status: "out_of_stock",
+  out_of_stock_since: "2026-07-29T06:00:00.000Z",
+  consecutive_out_of_stock_snapshots: 3,
+});
+assert.deepEqual(nextSourceAvailabilityObservation({}, "2026-07-29T12:00:00.000Z", true), {
+  availability_status: "available",
+  out_of_stock_since: null,
+  consecutive_out_of_stock_snapshots: 0,
+});
+
+assert.equal(isEmptyResultFullSnapshotTarget({ kind: "shopApi" }, {
+  fullSnapshot: true,
+  reportedGoodsCount: 0,
+  fetchedItemCount: 0,
+  rawSeenOfferCount: 0,
+  publishedItemCount: 0,
+}), true);
+assert.equal(isEmptyResultFullSnapshotTarget({ kind: "shopApi" }, {
+  fullSnapshot: false,
+  reportedGoodsCount: 0,
+  fetchedItemCount: 0,
+  rawSeenOfferCount: 0,
+  publishedItemCount: 0,
+}), false);
+assert.equal(isEmptyResultFullSnapshotTarget({ kind: "shopApi" }, { reportedGoodsCount: 0 }), false);
 assert.equal(
   blackcatWholesaleActionIdFromChunk(
     'createServerReference)("00fc36c4f4551a0ad0887d0946a6c93bc94960dfaf",callServer,void 0,findSourceMapURL,"fetchWholesaleProductsAction")',
@@ -682,6 +767,27 @@ assert.equal(
     hotProductTop5HitCount: 0,
   }).tier,
   "vip_15m",
+);
+assert.equal(
+  classifyShopCollectionScheduleTier({
+    target: {
+      collectionGroup: "vip_15m",
+      healthStatus: "healthy",
+      consecutiveFailures: 0,
+      lastSuccessAt: new Date().toISOString(),
+      availabilityStatus: "out_of_stock",
+      outOfStockSince: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      consecutiveOutOfStockSnapshots: 1,
+    },
+    latestRun: { status: "success", successCount: 2 },
+    scaleBand: "small",
+    changeBand: "low",
+    lowPriceBand: "strong",
+    hotProductOfferCount: 1,
+    hotProductLowestHitCount: 1,
+    hotProductTop5HitCount: 1,
+  }).tier,
+  "out_of_stock_watch_1h",
 );
 assert.equal(
   classifyShopCollectionScheduleTier({

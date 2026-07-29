@@ -10,6 +10,7 @@ export const COLLECTOR_RUNTIME_DEPENDENCY_FILES = [".nvmrc", "package.json", "pa
 export const COLLECTOR_RUNTIME_SOURCE_FILES = [
   "scripts/collect-api-transit.mjs",
   "scripts/collect-prices.mjs",
+  "scripts/out-of-stock-observation.mjs",
   "scripts/verify-hot-offers.mjs",
   "scripts/import-sub2api-api-transit.mjs",
   "scripts/probe-api-transit.mjs",

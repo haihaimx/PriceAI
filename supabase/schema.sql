@@ -35,6 +35,9 @@ create table if not exists sources (
   last_success_at timestamptz,
   consecutive_failures integer not null default 0,
   last_error text,
+  availability_status text not null default 'unknown' check (availability_status in ('unknown', 'available', 'out_of_stock')),
+  out_of_stock_since timestamptz,
+  consecutive_out_of_stock_snapshots integer not null default 0 check (consecutive_out_of_stock_snapshots >= 0),
   collector_lock_until timestamptz,
   collector_lock_owner text,
   collector_lock_started_at timestamptz,
@@ -48,6 +51,9 @@ alter table sources add column if not exists last_checked_at timestamptz;
 alter table sources add column if not exists last_success_at timestamptz;
 alter table sources add column if not exists consecutive_failures integer not null default 0;
 alter table sources add column if not exists last_error text;
+alter table sources add column if not exists availability_status text not null default 'unknown';
+alter table sources add column if not exists out_of_stock_since timestamptz;
+alter table sources add column if not exists consecutive_out_of_stock_snapshots integer not null default 0;
 alter table sources add column if not exists collector_kind text;
 alter table sources add column if not exists runtime_region text not null default 'default';
 alter table sources add column if not exists buyer_fee_rate numeric;
@@ -59,8 +65,35 @@ alter table sources add column if not exists collector_lock_owner text;
 alter table sources add column if not exists collector_lock_started_at timestamptz;
 alter table sources add column if not exists shop_created_at timestamptz;
 
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'sources_availability_status_check'
+      and conrelid = 'sources'::regclass
+  ) then
+    alter table sources
+      add constraint sources_availability_status_check
+      check (availability_status in ('unknown', 'available', 'out_of_stock'));
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'sources_out_of_stock_snapshot_count_check'
+      and conrelid = 'sources'::regclass
+  ) then
+    alter table sources
+      add constraint sources_out_of_stock_snapshot_count_check
+      check (consecutive_out_of_stock_snapshots >= 0);
+  end if;
+end
+$$;
+
 create index if not exists sources_collection_group_enabled_idx
   on sources (collection_group, id)
+  where enabled = true;
+
+create index if not exists sources_availability_observation_idx
+  on sources (availability_status, out_of_stock_since, last_checked_at)
   where enabled = true;
 
 create table if not exists raw_offers (

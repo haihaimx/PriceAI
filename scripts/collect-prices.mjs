@@ -8,6 +8,12 @@ import crypto from "node:crypto";
 import { ProxyAgent } from "undici";
 import { createClient } from "@supabase/supabase-js";
 import { safeFetch } from "./safe-fetch.mjs";
+import {
+  DAILY_PROBE_INTERVAL_MINUTES,
+  WEEKLY_PROBE_INTERVAL_MINUTES,
+  legacyFailureObservationInterval,
+  outOfStockObservationSchedule,
+} from "./out-of-stock-observation.mjs";
 import collectorRegistry from "../config/collectors.json" with { type: "json" };
 
 const env = readEnvFile(".env.local");
@@ -41,9 +47,6 @@ const SHOP_API_FIXED_FEE_RATE = 0.03;
 const SHOP_API_CENT_TOLERANCE = 0.011;
 const SHOP_API_PRODUCT_LEVEL_FEE_HOSTS = new Set(["catfk.com"]);
 const SHOP_API_FULL_SNAPSHOT_MIN_COVERAGE = 0.8;
-const OBSERVATION_PROBE_FAILURE_THRESHOLD = 3;
-const DAILY_PROBE_INTERVAL_MINUTES = 24 * 60;
-const WEEKLY_PROBE_INTERVAL_MINUTES = 7 * DAILY_PROBE_INTERVAL_MINUTES;
 const DEFAULT_SHOP_API_PROXY_HOSTS = ["www.ldxp.cn", "pay.ldxp.cn", "ldxp.cn"];
 const LDXP_WWW_HOST = "www.ldxp.cn";
 const LDXP_PAY_HOST = "pay.ldxp.cn";
@@ -70,6 +73,8 @@ const DEFAULT_SHOP_API_EXIT_ERROR_FAMILY_PAUSE = false;
 const SHOP_COLLECTION_SCHEDULER_CRAWL_RUN_SELECT =
   "id,source_id,source_name,mode,status,started_at,finished_at,success_count,failure_count,message,details";
 const SHOP_COLLECTION_SCHEDULER_SOURCE_SELECT =
+  "id,name,base_url,entry_url,collection_method,collector_kind,enabled,notes,health_status,last_success_at,last_checked_at,consecutive_failures,last_error,availability_status,out_of_stock_since,consecutive_out_of_stock_snapshots,created_at,shop_created_at,updated_at,buyer_fee_rate,buyer_fee_payment_method,buyer_fee_strategy,collection_group";
+const SHOP_COLLECTION_SCHEDULER_SOURCE_NO_AVAILABILITY_SELECT =
   "id,name,base_url,entry_url,collection_method,collector_kind,enabled,notes,health_status,last_success_at,last_checked_at,consecutive_failures,last_error,created_at,shop_created_at,updated_at,buyer_fee_rate,buyer_fee_payment_method,buyer_fee_strategy,collection_group";
 const SHOP_COLLECTION_SCHEDULER_SOURCE_NO_GROUP_SELECT =
   "id,name,base_url,entry_url,collection_method,collector_kind,enabled,notes,health_status,last_success_at,last_checked_at,consecutive_failures,last_error,created_at,shop_created_at,updated_at,buyer_fee_rate,buyer_fee_payment_method,buyer_fee_strategy";
@@ -95,6 +100,9 @@ const SHOP_COLLECTION_TIER_DEFINITIONS = [
   { tier: "low_3h", label: "3h 低频", intervalMinutes: 180, requestWeight: 1 },
   { tier: "retry_priority", label: "优先重试", intervalMinutes: 60, requestWeight: 1 },
   { tier: "retry_cooldown", label: "冷却重试", intervalMinutes: 180, requestWeight: 1 },
+  { tier: "out_of_stock_watch_1h", label: "缺货观察 1h", intervalMinutes: 60, requestWeight: 1 },
+  { tier: "out_of_stock_watch_3h", label: "缺货观察 3h", intervalMinutes: 180, requestWeight: 1 },
+  { tier: "out_of_stock_watch_6h", label: "缺货观察 6h", intervalMinutes: 360, requestWeight: 1 },
   { tier: "daily_probe", label: "每日复检", intervalMinutes: DAILY_PROBE_INTERVAL_MINUTES, requestWeight: 1 },
   { tier: "weekly_probe", label: "每周复检", intervalMinutes: WEEKLY_PROBE_INTERVAL_MINUTES, requestWeight: 1 },
 ];
@@ -410,7 +418,7 @@ async function collectOneTarget(target, options, logger, lockOwner, familyState,
     const collection = await collectTargetWithRetries(target, options, logger);
     const collectedAt = new Date().toISOString();
     const offers = collection.offers;
-    const emptyFullSnapshot = !offers.length && isEmptyResultFullSnapshotTarget(target);
+    const emptyFullSnapshot = !offers.length && isEmptyResultFullSnapshotTarget(target, collection.details);
     const status = offers.length || emptyFullSnapshot ? "success" : "failed";
     const message = offers.length
       ? `HTTP collector found ${offers.length} offers after ${collection.attempts.length} attempt(s).`
@@ -678,6 +686,7 @@ export {
   isShopApiProxyTransportErrorMessage,
   isLdxpFailoverErrorMessage,
   isGenericProductDetailHref,
+  isEmptyResultFullSnapshotTarget,
   kamiInventoryFromStock,
   normalizeLdxpRuntimeSettings,
   normalizeShopApiItemOfferUrl,
@@ -787,7 +796,7 @@ async function collectTargetWithRetries(target, options = {}, logger = null) {
         message,
       });
 
-      if (offers.length || isEmptyResultFullSnapshotTarget(target)) {
+      if (offers.length || isEmptyResultFullSnapshotTarget(target, collectionDetails)) {
         return { offers, attempts, maxAttempts, details: collectionDetails };
       }
 
@@ -3324,6 +3333,28 @@ async function selectCollectorSourceRows(supabase) {
     .select(SHOP_COLLECTION_SCHEDULER_SOURCE_SELECT)
     .eq("enabled", true);
   if (!result.error) return result;
+  if (
+    isMissingColumnError(result.error, "availability_status") ||
+    isMissingColumnError(result.error, "out_of_stock_since") ||
+    isMissingColumnError(result.error, "consecutive_out_of_stock_snapshots")
+  ) {
+    const compatibilityResult = await supabase
+      .from("sources")
+      .select(SHOP_COLLECTION_SCHEDULER_SOURCE_NO_AVAILABILITY_SELECT)
+      .eq("enabled", true);
+    if (!compatibilityResult.error || (!isMissingColumnError(compatibilityResult.error, "collection_group") && !isMissingColumnError(compatibilityResult.error, "shop_created_at"))) return compatibilityResult;
+
+    const noGroupResult = await supabase
+      .from("sources")
+      .select(SHOP_COLLECTION_SCHEDULER_SOURCE_NO_GROUP_SELECT)
+      .eq("enabled", true);
+    if (!noGroupResult.error || !isMissingColumnError(noGroupResult.error, "shop_created_at")) return noGroupResult;
+
+    return supabase
+      .from("sources")
+      .select(SHOP_COLLECTION_SCHEDULER_SOURCE_LEGACY_SELECT)
+      .eq("enabled", true);
+  }
   if (!isMissingColumnError(result.error, "collection_group") && !isMissingColumnError(result.error, "shop_created_at")) {
     return result;
   }
@@ -3369,6 +3400,12 @@ function buildTarget(source, rawOffers) {
         ? null
         : Number(source.consecutive_failures),
     lastError: source.last_error || null,
+    availabilityStatus: source.availability_status || "unknown",
+    outOfStockSince: isoDateTimeOrNull(source.out_of_stock_since),
+    consecutiveOutOfStockSnapshots:
+      source.consecutive_out_of_stock_snapshots === null || source.consecutive_out_of_stock_snapshots === undefined
+        ? 0
+        : Number(source.consecutive_out_of_stock_snapshots),
     createdAt: isoDateTimeOrNull(source.created_at),
     sourceShopCreatedAt: isoDateTimeOrNull(source.shop_created_at),
     updatedAt: isoDateTimeOrNull(source.updated_at),
@@ -4049,6 +4086,7 @@ function shouldIncludeFullSnapshot(target, offers, status, options = {}, details
 }
 
 function shopApiFullSnapshotEvidenceReliable(offers, details = {}) {
+  if (details.fullSnapshot === false) return false;
   const fetchedItemCount = nonNegativeInteger(details.fetchedItemCount);
   const rawSeenOfferCount = nonNegativeInteger(details.rawSeenOfferCount);
   const publishedItemCount = nonNegativeInteger(details.publishedItemCount);
@@ -4097,8 +4135,9 @@ function nonNegativeInteger(value) {
   return number;
 }
 
-function isEmptyResultFullSnapshotTarget(target) {
-  return EMPTY_FULL_SNAPSHOT_COLLECTORS.has(target.kind);
+function isEmptyResultFullSnapshotTarget(target, details = {}) {
+  if (EMPTY_FULL_SNAPSHOT_COLLECTORS.has(target.kind)) return true;
+  return target.kind === "shopApi" && shopApiFullSnapshotEvidenceReliable([], details);
 }
 
 function flushSourceCountFor(options = {}) {
@@ -5017,6 +5056,12 @@ function classifyShopCollectionScheduleTier(input) {
     return { tier: "new_source_bootstrap", reasons };
   }
 
+  const outOfStockSchedule = outOfStockObservationSchedule(input.target);
+  if (outOfStockSchedule) {
+    reasons.push(outOfStockSchedule.reason);
+    return { tier: outOfStockSchedule.tier, reasons };
+  }
+
   if (hasFailure) {
     reasons.push(runtimeIssue ? `最近失败：${runtimeIssue}` : consecutiveFailures ? `连续失败 ${consecutiveFailures} 次` : "最近采集失败");
     if (isDailyProbeFailure(input.target.lastError, consecutiveFailures)) {
@@ -5072,20 +5117,16 @@ function classifyShopCollectionScheduleTier(input) {
 }
 
 function isDailyProbeFailure(lastError, consecutiveFailures) {
-  if (Number(consecutiveFailures || 0) < OBSERVATION_PROBE_FAILURE_THRESHOLD) return false;
-  return /(?:店铺接口正常[^。\n]*(?:完整)?商品快照为空|店铺正常[^。\n]*(?:没有商品|无商品|商品为空)|shop (?:api )?(?:reachable|healthy)[^\n]*(?:0 goods|empty (?:goods )?snapshot)|goods_count\s*[=:]\s*0)/i.test(String(lastError || ""));
+  return legacyFailureObservationInterval(lastError, consecutiveFailures) === DAILY_PROBE_INTERVAL_MINUTES;
 }
 
 function isWeeklyProbeFailure(lastError, consecutiveFailures) {
-  if (Number(consecutiveFailures || 0) < OBSERVATION_PROBE_FAILURE_THRESHOLD) return false;
-  if (isDailyProbeFailure(lastError, consecutiveFailures)) return false;
-  if (/^\s*采集结果为空[。.]*\s*$/i.test(String(lastError || ""))) return false;
-  return !sourceQualityRuntimeIssueLabel(lastError);
+  return legacyFailureObservationInterval(lastError, consecutiveFailures) === WEEKLY_PROBE_INTERVAL_MINUTES;
 }
 
 function shopCollectionScheduleReferenceAt(target, latestRun, tier) {
   const latestRunAt = latestRun ? shopCollectionCrawlRunObservedAt(latestRun) : null;
-  if (tier === "retry_priority" || tier === "retry_cooldown" || tier === "daily_probe" || tier === "weekly_probe") {
+  if (tier === "retry_priority" || tier === "retry_cooldown" || tier.startsWith("out_of_stock_watch_") || tier === "daily_probe" || tier === "weekly_probe") {
     return target.lastCheckedAt || latestRunAt || target.lastSuccessAt || null;
   }
   return latestRunAt || target.lastSuccessAt || target.lastCheckedAt || null;
@@ -5406,19 +5447,24 @@ function optionList(value) {
 function cooldownSkipReason(target, options = {}) {
   if (!shouldUseCollectionCooldown(options)) return null;
 
-  const observationIntervalMinutes = isDailyProbeFailure(target.lastError, target.consecutiveFailures)
+  const outOfStockSchedule = outOfStockObservationSchedule(target);
+  const observationIntervalMinutes = outOfStockSchedule?.intervalMinutes ?? (isDailyProbeFailure(target.lastError, target.consecutiveFailures)
     ? DAILY_PROBE_INTERVAL_MINUTES
     : isWeeklyProbeFailure(target.lastError, target.consecutiveFailures)
       ? WEEKLY_PROBE_INTERVAL_MINUTES
-      : null;
+      : null);
   if (observationIntervalMinutes && target.lastCheckedAt) {
     const lastCheckedMs = new Date(target.lastCheckedAt).getTime();
     const ageMs = Date.now() - lastCheckedMs;
     const observationMs = observationIntervalMinutes * 60_000;
     if (Number.isFinite(lastCheckedMs) && ageMs >= 0 && ageMs < observationMs) {
       const remainingMinutes = Math.max(1, Math.ceil((observationMs - ageMs) / 60_000));
-      const label = observationIntervalMinutes === DAILY_PROBE_INTERVAL_MINUTES ? "每日" : "每周";
-      return { message: `连续失败已记录，进入${label}复检；约 ${remainingMinutes} 分钟后重试。` };
+      const label = outOfStockSchedule
+        ? outOfStockSchedule.reason
+        : observationIntervalMinutes === DAILY_PROBE_INTERVAL_MINUTES
+          ? "连续失败已记录，进入每日复检"
+          : "连续失败已记录，进入每周复检";
+      return { message: `${label}；约 ${remainingMinutes} 分钟后重试。` };
     }
   }
 
