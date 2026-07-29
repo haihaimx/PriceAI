@@ -12,7 +12,7 @@ import {
   TRANSIT_MODEL_FAMILY_ORDER,
   isTransitModelFamily,
 } from "@/data/api-transit/types";
-import { replaceClientSearchParams } from "@/lib/client-url-state";
+import { replaceClientSearchParams, useClientSearchParams } from "@/lib/client-url-state";
 
 type FamilyFilter = "all" | TransitModelFamily;
 
@@ -43,7 +43,8 @@ export function TransitFamilyTabs({
   className?: string;
 }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const routeSearchParams = useSearchParams();
+  const searchParams = useClientSearchParams(routeSearchParams.toString());
   const activeFamily = coerceFamily(searchParams.get("family") ?? searchParams.get("model"));
 
   const tabs = useMemo<CategoryTabItem[]>(() => {

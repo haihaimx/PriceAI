@@ -15,7 +15,7 @@ import { TransitModelIcon } from "@/components/TransitModelIcon";
 import { TransitPriceBreakdown } from "@/components/TransitPriceBreakdown";
 import { TransitViewTabs } from "@/components/TransitViewTabs";
 import { useDebouncedValue } from "@/lib/client-hooks";
-import { replaceClientSearchParams } from "@/lib/client-url-state";
+import { replaceClientSearchParams, useClientSearchParams } from "@/lib/client-url-state";
 import { shouldHandleListDetailClick } from "@/lib/list-return";
 import { saveCurrentListScrollPosition, useListScrollRestoration } from "@/lib/list-scroll-restoration";
 import { formatDateMinute } from "@/lib/utils";
@@ -72,7 +72,8 @@ interface Props {
 
 export default function TransitModelExplorer({ stations }: Props) {
   useListScrollRestoration();
-  const searchParams = useSearchParams();
+  const routeSearchParams = useSearchParams();
+  const searchParams = useClientSearchParams(routeSearchParams.toString());
   const [urlReady, setUrlReady] = useState(false);
   const family = coerceFamily(searchParams.get("family") ?? searchParams.get("model"));
   const [query, setQuery] = useState(searchParams.get("q") || "");

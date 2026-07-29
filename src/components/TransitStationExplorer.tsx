@@ -17,7 +17,7 @@ import { TransitLatencyBadge } from "@/components/TransitLatencyBadge";
 import { TransitStationSystemIcon } from "@/components/TransitStationSystemIcon";
 import { TransitViewTabs } from "@/components/TransitViewTabs";
 import { useDebouncedValue } from "@/lib/client-hooks";
-import { replaceClientSearchParams } from "@/lib/client-url-state";
+import { replaceClientSearchParams, useClientSearchParams } from "@/lib/client-url-state";
 import { listDetailNavigationHref, shouldHandleListDetailClick } from "@/lib/list-return";
 import { saveCurrentListScrollPosition, useListScrollRestoration } from "@/lib/list-scroll-restoration";
 import { formatDateMinute, formatDateShortMinute } from "@/lib/utils";
@@ -145,7 +145,8 @@ interface Props {
 export default function TransitStationExplorer({ stations, rankingReferenceAt }: Props) {
   useListScrollRestoration();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const routeSearchParams = useSearchParams();
+  const searchParams = useClientSearchParams(routeSearchParams.toString());
   const [urlReady, setUrlReady] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState(searchParams.get("q") || "");

@@ -51,6 +51,7 @@ assert.equal(
 );
 
 let replaceStateCall: { data: unknown; url: string | URL | null | undefined } | null = null;
+let dispatchedEvent = "";
 Object.defineProperty(globalThis, "window", {
   configurable: true,
   value: {
@@ -60,6 +61,10 @@ Object.defineProperty(globalThis, "window", {
       replaceState(data: unknown, _unused: string, url?: string | URL | null) {
         replaceStateCall = { data, url };
       },
+    },
+    dispatchEvent(event: Event) {
+      dispatchedEvent = event.type;
+      return true;
     },
   },
 });
@@ -71,8 +76,13 @@ assert.equal(
 );
 assert.deepEqual(
   replaceStateCall,
-  { data: null, url: "/api-transit?q=ai&family=claude" },
-  "uses a null history state so Next updates useSearchParams",
+  { data: { __NA: true }, url: "/api-transit?q=ai&family=claude" },
+  "preserves the Next history state to avoid a Server Component navigation",
+);
+assert.equal(
+  dispatchedEvent,
+  "priceai:client-search-params-change",
+  "notifies client filter subscribers after updating the URL",
 );
 
 delete (globalThis as { window?: unknown }).window;
