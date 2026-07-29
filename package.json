@@ -45,7 +45,7 @@
     "import:api-transit:freedomstore": "node scripts/import-freedomstore-api-transit.mjs",
     "import:api-transit:sub2api": "node scripts/import-sub2api-api-transit.mjs",
     "probe:api-transit": "node scripts/probe-api-transit.mjs",
-    "test:api-transit": "node scripts/run-ts-test.mjs scripts/test-api-transit-sorting.ts && node scripts/test-api-transit.mjs && node scripts/test-api-transit-probe.mjs",
+    "test:api-transit": "node scripts/run-ts-test.mjs scripts/test-api-transit-sorting.ts && node scripts/run-ts-test.mjs scripts/test-client-url-state.ts && node scripts/test-api-transit.mjs && node scripts/test-api-transit-probe.mjs",
     "test:feedback": "node scripts/run-ts-test.mjs scripts/test-feedback-rules.ts",
     "test:wholesale": "node scripts/run-ts-test.mjs scripts/test-wholesale.ts",
     "test:channel-submissions": "node scripts/run-ts-test.mjs scripts/test-channel-submissions.ts",

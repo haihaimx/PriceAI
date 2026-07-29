@@ -15,6 +15,7 @@ import { TransitModelIcon } from "@/components/TransitModelIcon";
 import { TransitPriceBreakdown } from "@/components/TransitPriceBreakdown";
 import { TransitViewTabs } from "@/components/TransitViewTabs";
 import { useDebouncedValue } from "@/lib/client-hooks";
+import { replaceClientSearchParams } from "@/lib/client-url-state";
 import { shouldHandleListDetailClick } from "@/lib/list-return";
 import { saveCurrentListScrollPosition, useListScrollRestoration } from "@/lib/list-scroll-restoration";
 import { formatDateMinute } from "@/lib/utils";
@@ -85,18 +86,10 @@ export default function TransitModelExplorer({ stations }: Props) {
   useEffect(() => {
     if (!urlReady) return;
 
-    const params = new URLSearchParams();
-    if (family !== "all") params.set("family", family);
-    if (debouncedQuery) params.set("q", debouncedQuery);
-    const qs = params.toString();
-
-    const nextUrl = qs ? `/api-transit/models?${qs}` : "/api-transit/models";
-    const currentUrl = `${window.location.pathname}${window.location.search}`;
-
-    if (currentUrl === nextUrl) return;
-
-    window.history.replaceState(null, "", nextUrl);
-  }, [debouncedQuery, family, urlReady]);
+    replaceClientSearchParams("/api-transit/models", {
+      q: debouncedQuery || null,
+    });
+  }, [debouncedQuery, urlReady]);
 
   const modelSummaries = useMemo(() => {
     const summaries = getTransitModelSummaries(stations, family);

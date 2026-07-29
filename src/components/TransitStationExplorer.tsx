@@ -17,6 +17,7 @@ import { TransitLatencyBadge } from "@/components/TransitLatencyBadge";
 import { TransitStationSystemIcon } from "@/components/TransitStationSystemIcon";
 import { TransitViewTabs } from "@/components/TransitViewTabs";
 import { useDebouncedValue } from "@/lib/client-hooks";
+import { replaceClientSearchParams } from "@/lib/client-url-state";
 import { listDetailNavigationHref, shouldHandleListDetailClick } from "@/lib/list-return";
 import { saveCurrentListScrollPosition, useListScrollRestoration } from "@/lib/list-scroll-restoration";
 import { formatDateMinute, formatDateShortMinute } from "@/lib/utils";
@@ -180,22 +181,13 @@ export default function TransitStationExplorer({ stations, rankingReferenceAt }:
   useEffect(() => {
     if (!urlReady) return;
 
-    const params = new URLSearchParams();
-    if (debouncedSearch) params.set("q", debouncedSearch);
-    if (modelFilter !== "all") params.set("model", modelFilter);
-    if (familyFilter !== "all") params.set("family", familyFilter);
-    if (channelFilter !== "all") params.set("channel", channelFilter);
-    if (poolFilter !== "all") params.set("pool", poolFilter);
-    if (sortBy !== "overall") params.set("sort", sortBy);
-
-    const query = params.toString();
-    const nextUrl = query ? `/api-transit?${query}` : "/api-transit";
-    const currentUrl = `${window.location.pathname}${window.location.search}`;
-
-    if (currentUrl === nextUrl) return;
-
-    window.history.replaceState(null, "", nextUrl);
-  }, [channelFilter, debouncedSearch, familyFilter, modelFilter, poolFilter, sortBy, urlReady]);
+    replaceClientSearchParams("/api-transit", {
+      q: debouncedSearch || null,
+      channel: channelFilter === "all" ? null : channelFilter,
+      pool: poolFilter === "all" ? null : poolFilter,
+      sort: sortBy === "overall" ? null : sortBy,
+    });
+  }, [channelFilter, debouncedSearch, poolFilter, sortBy, urlReady]);
 
   const filtered = useMemo(() => {
     let result = [...stations];
