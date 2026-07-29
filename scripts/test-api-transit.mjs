@@ -307,6 +307,38 @@ assert.ok(
   "DragonAPI 后台备注必须明确保持待审核草稿，不自动上前台。",
 );
 
+const configuredJuapiSource = transitSourceConfig.find((source) => source.id === "hejuapi-com");
+assert.ok(configuredJuapiSource, "JuAPI must stay saved as an API transit draft source.");
+assert.equal(configuredJuapiSource.name, "JuAPI");
+assert.equal(configuredJuapiSource.collectorKind, "new_api_pricing");
+assert.equal(configuredJuapiSource.stationSystem, "new_api");
+assert.equal(configuredJuapiSource.websiteUrl, "https://www.hejuapi.com/");
+assert.equal(configuredJuapiSource.apiBaseUrl, "https://www.hejuapi.com/v1");
+assert.equal(configuredJuapiSource.pricingUrl, "https://www.hejuapi.com/pricing");
+assert.equal(configuredJuapiSource.pricingEndpointUrl, "https://www.hejuapi.com/api/pricing");
+assert.equal(configuredJuapiSource.monitorUrl, "https://www.hejuapi.com/status");
+assert.equal(
+  configuredJuapiSource.monitorEndpointUrl,
+  "https://www.hejuapi.com/api/perf-metrics/summary?period=24",
+);
+assert.equal(configuredJuapiSource.autoPublish, false);
+assert.equal(configuredJuapiSource.commercialRelation, "none");
+assert.equal(configuredJuapiSource.operatorType, "unknown");
+assert.equal(configuredJuapiSource.invoiceSupport, "unknown");
+assert.equal(Boolean(configuredJuapiSource.rechargeRatio), false);
+assert.ok(
+  configuredJuapiSource.adminNote.includes("19 个模型") &&
+    configuredJuapiSource.adminNote.includes("6 个已披露分组倍率") &&
+    configuredJuapiSource.adminNote.includes("11 个站方监测项"),
+  "JuAPI 后台备注必须保留公开价格与监测采集规模。",
+);
+assert.ok(
+  configuredJuapiSource.adminNote.includes("自研Claude满血") &&
+    configuredJuapiSource.adminNote.includes("充值倍率") &&
+    configuredJuapiSource.adminNote.includes("autoPublish=false"),
+  "JuAPI 后台备注必须保留价格口径缺口、待补资料和不自动上前台约束。",
+);
+
 const scheduledPublishedDragonapiSources = __test.selectSources(
   __test.filterSourcesByPublishedStationIds(
     transitSourceConfig,
