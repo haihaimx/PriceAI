@@ -28,6 +28,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { clearFeedbackResumeRequest, getFeedbackResumeRequest } from "@/lib/feedback-draft";
 import { listDetailNavigationHref, shouldHandleListDetailClick } from "@/lib/list-return";
 import { rewriteLdxpUrlHost } from "@/lib/ldxp-domain-settings-shared";
+import { safeExternalShopUrl } from "@/lib/external-url";
 import { saveCurrentListScrollPosition, useListScrollRestoration } from "@/lib/list-scroll-restoration";
 import {
   compareProductDisplayOrder,
@@ -1890,7 +1891,7 @@ function MobileMerchantMetric({ label, value }: { label: string; value: number }
 
 function MerchantSourceLink({ merchant }: { merchant: PublicMerchantSummary }) {
   const href = rewriteLdxpUrlHost(merchant.shopUrl || merchant.entryUrl) || merchant.shopUrl || merchant.entryUrl;
-  const usableHref = isMerchantShopUrl(href) ? href : null;
+  const usableHref = safeExternalShopUrl(href);
 
   if (!usableHref) {
     return (
@@ -1917,18 +1918,6 @@ function MerchantSourceLink({ merchant }: { merchant: PublicMerchantSummary }) {
       <ChevronRight size={14} />
     </a>
   );
-}
-
-function isMerchantShopUrl(value: string | null | undefined): value is string {
-  const raw = String(value || "").trim();
-  if (!raw) return false;
-  try {
-    const url = new URL(raw);
-    const path = url.pathname.replace(/\/+$/, "");
-    return !/\/item\//i.test(path);
-  } catch {
-    return false;
-  }
 }
 
 function OfferStatusBadge({ available }: { available: boolean }) {

@@ -14,6 +14,7 @@ import { trackAnalyticsEvent } from "@/lib/analytics";
 import { readSessionCache, writeSessionCache } from "@/lib/client-cache";
 import { useMediaQuery } from "@/lib/client-hooks";
 import { createTimeoutSignal, isGeneratedDatasetStale, newestUsableGeneratedDataset } from "@/lib/client-refresh";
+import { safeExternalShopUrl } from "@/lib/external-url";
 import { rewriteLdxpUrlHost } from "@/lib/ldxp-domain-settings-shared";
 import { withPriceAiUtm } from "@/lib/outbound-analytics-client";
 import {
@@ -1508,9 +1509,7 @@ function OfferTable({
                     <span className="flex min-w-0 items-center gap-2">
                       <CollectorSourceLogo group={collectorGroup} platformId={sourcePlatform.id} size="compact" />
                       <span className="min-w-0 max-w-full">
-                        <span className="block truncate font-semibold text-[#202829]">
-                          {sourceLabel(offer)}
-                        </span>
+                        <OfferMerchantLink offer={offer} mode="table" />
                         {sourceSecondaryLabel(offer) ? (
                           <span className="mt-1 block truncate text-xs text-[#5a6061]">{sourceSecondaryLabel(offer)}</span>
                         ) : null}
@@ -1577,7 +1576,7 @@ function OfferListItem({
         <div className="flex min-w-0 items-start gap-2">
           <CollectorSourceLogo group={collectorGroup} platformId={sourcePlatform.id} size="compact" />
           <div className="min-w-0">
-            <p className="truncate font-semibold text-[#202829]">{sourceLabel(offer)}</p>
+            <OfferMerchantLink offer={offer} mode="card" />
             <OfferSourceTitle title={offer.sourceTitle} mode="card" sharedAccess={sharedAccess} />
             <OfferMerchantTimeSummary offer={offer} />
             {hasRisk ? (
@@ -3217,4 +3216,43 @@ function sourceSecondaryLabel(offer: RawOffer): string | null {
   const sourceName = merchantSourceDisplayName(offer.sourceName);
   if (!sourceName || sourceName === sourceLabel(offer)) return null;
   return sourceName;
+}
+
+function OfferMerchantLink({ offer, mode }: { offer: RawOffer; mode: "table" | "card" }) {
+  const label = sourceLabel(offer);
+  const shopUrl = safeExternalShopUrl(rewriteLdxpUrlHost(offer.shopUrl) || offer.shopUrl);
+  const className = mode === "table"
+    ? "flex w-full items-center gap-1 truncate font-semibold text-[#202829] hover:text-[#47657a] hover:underline focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#47657a]"
+    : "flex items-center gap-1 truncate font-semibold text-[#202829] hover:text-[#47657a] hover:underline focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#47657a]";
+
+  if (!shopUrl) {
+    return mode === "table"
+      ? <span className="block truncate font-semibold text-[#202829]">{label}</span>
+      : <p className="truncate font-semibold text-[#202829]">{label}</p>;
+  }
+
+  const outboundUrl = withPriceAiUtm(shopUrl, {
+    medium: "merchant_shop",
+    campaign: "priceai_merchant",
+    content: offer.sourceId || offer.id,
+  });
+
+  return (
+    <a
+      href={outboundUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`前往${label}店铺主页`}
+      aria-label={`前往${label}店铺主页（新标签页打开）`}
+      onClick={() => {
+        trackAnalyticsEvent("merchant_shop_click", {
+          source_id: offer.sourceId || "unknown",
+        });
+      }}
+      className={className}
+    >
+      <span className="truncate">{label}</span>
+      <ExternalLink aria-hidden="true" size={13} className="shrink-0" />
+    </a>
+  );
 }

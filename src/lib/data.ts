@@ -5091,7 +5091,9 @@ function sanitizePublicProductOffersResultForProduct(
 
   const filterFacets = filterOfferFilterFacetsForProduct(productId, result.filterFacets);
   const activeFilterTags = parseOfferFilterTagsForProduct(productId, result.activeFilterTags);
-  const offers = result.offers.filter((offer) => (offer.canonicalProductId || offer.storedCanonicalProductId) === productId);
+  const offers = result.offers
+    .map(withInferredMerchantShopUrl)
+    .filter((offer) => (offer.canonicalProductId || offer.storedCanonicalProductId) === productId);
   const removedOfferCount = result.offers.length - offers.length;
   const total = removedOfferCount > 0 ? Math.max(0, result.total - removedOfferCount) : result.total;
 
@@ -6334,6 +6336,7 @@ function compactPublicOffer(offer: RawOffer): RawOffer {
     currency: offer.currency,
     status: offer.status,
     url: offer.url,
+    shopUrl: withInferredMerchantShopUrl(offer).shopUrl,
     tags: [],
     filterTags: offer.filterTags,
     stockCount: offer.stockCount,
@@ -6347,6 +6350,20 @@ function compactPublicOffer(offer: RawOffer): RawOffer {
     effectiveStatus: offer.effectiveStatus,
     freshnessStatus: offer.freshnessStatus,
     riskFeedback: offer.riskFeedback,
+  };
+}
+
+function withInferredMerchantShopUrl(offer: RawOffer): RawOffer {
+  if (offer.shopUrl !== undefined) return offer;
+
+  return {
+    ...offer,
+    shopUrl: inferMerchantShopUrl({
+      sourceId: offer.sourceId,
+      sourceName: offer.sourceName,
+      entryUrl: offer.url,
+      host: offerHost(offer.url),
+    }),
   };
 }
 
@@ -6888,6 +6905,9 @@ function normalizeSourceCollectorKind(value: unknown): Source["collectorKind"] {
 
 export function mapRawOffer(row: Record<string, unknown>): RawOffer {
   const sourceTitle = String(row.source_title || "");
+  const sourceId = row.source_id ? String(row.source_id) : null;
+  const sourceName = String(row.source_name || "");
+  const url = String(row.url || "");
   const tags = Array.isArray(row.tags) ? row.tags.map(String) : [];
   const price = row.price === null || row.price === undefined ? null : Number(row.price);
   const storedCanonicalProductId = row.canonical_product_id ? String(row.canonical_product_id) : null;
@@ -6900,8 +6920,8 @@ export function mapRawOffer(row: Record<string, unknown>): RawOffer {
 
   return {
     id: String(row.id),
-    sourceId: row.source_id ? String(row.source_id) : null,
-    sourceName: String(row.source_name || ""),
+    sourceId,
+    sourceName,
     sourceStoreName: row.source_store_name ? String(row.source_store_name) : null,
     collectorKind: normalizeSourceCollectorKind(row.collector_kind),
     sourceTitle,
@@ -6911,7 +6931,13 @@ export function mapRawOffer(row: Record<string, unknown>): RawOffer {
     priceBasis: row.price_basis ? String(row.price_basis) as RawOffer["priceBasis"] : null,
     currency: String(row.currency || "CNY"),
     status: String(row.status || "unknown") as RawOffer["status"],
-    url: String(row.url || ""),
+    url,
+    shopUrl: inferMerchantShopUrl({
+      sourceId,
+      sourceName,
+      entryUrl: url,
+      host: offerHost(url),
+    }),
     tags,
     filterTags,
     stockCount: row.stock_count === null || row.stock_count === undefined ? null : Number(row.stock_count),

@@ -90,6 +90,7 @@ export type RawOffer = {
   currency: string;
   status: OfferStatus;
   url: string;
+  shopUrl?: string | null;
   tags: string[];
   filterTags?: string[];
   stockCount?: number | null;
