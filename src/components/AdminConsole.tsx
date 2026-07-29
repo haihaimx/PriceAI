@@ -3,6 +3,7 @@
 import {
   Activity,
   AlertTriangle,
+  BarChart3,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -142,6 +143,7 @@ type ApiProviderCandidate = ApiModelAdminData["providerCandidates"][number];
 type ApiProviderSubmission = ApiModelAdminData["providerSubmissions"][number];
 type RiskReviewSettings = AdminSummary["riskReviewSettings"];
 type SponsorSettings = AdminSummary["sponsorSettings"];
+type OutboundAnalyticsData = AdminSummary["outboundAnalytics"];
 type CommunitySettings = AdminSummary["communitySettings"];
 type SponsorPlacementKind = keyof SponsorSettings["placements"];
 type SponsorPlacementConfig = SponsorSettings["placements"][SponsorPlacementKind];
@@ -346,6 +348,7 @@ const adminTabValues = [
   "official",
   "apiModels",
   "apiTransit",
+  "analytics",
   "wholesale",
   "sources",
   "manual",
@@ -538,6 +541,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
   const [apiProviderSubmissions, setApiProviderSubmissions] = useState<ApiProviderSubmission[]>(data.apiModels.providerSubmissions || []);
   const [riskReviewSettings, setRiskReviewSettings] = useState<RiskReviewSettings>(data.riskReviewSettings);
   const [sponsorSettings, setSponsorSettings] = useState<SponsorSettings>(data.sponsorSettings);
+  const outboundAnalytics = data.outboundAnalytics;
   const [communitySettings, setCommunitySettings] = useState<CommunitySettings>(data.communitySettings);
   const [passwordStatus, setPasswordStatus] = useState<PasswordStatus>(data.passwordStatus);
   const [collectorStatus, setCollectorStatus] = useState<CollectorStatusState>({
@@ -1197,6 +1201,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
           { id: "manual", label: "报价维护", count: null, icon: <Plus size={15} />, description: "调试补录报价和处理隐藏报价，作为排查工具而非长期维护入口。" },
           { id: "official", label: "官方价格", count: officialPrices.currentPrices.length || null, icon: <Database size={15} />, description: "维护官方订阅地区价、应用、计划、地区和采集日志。" },
           { id: "apiModels", label: "API 模型", count: apiModels.offers.length || null, icon: <TerminalSquare size={15} />, description: "维护官方 API 模型、供应商、套餐、报价和候选提交。" },
+          { id: "analytics", label: "数据分析", count: outboundAnalytics.totals.clicks30d || null, icon: <BarChart3 size={15} />, description: "查看商品、店铺、中转站和赞助位的第一方出站归因。" },
         ],
       },
       {
@@ -1237,7 +1242,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
         ],
       },
     ],
-    [apiModels.offers.length, apiTransitPendingSubmissionCount, collectionMonitoringIssueCount, collectorHealthIssueCount, collectorStatus.crawlRuns.length, collectorTodoSubmissions.length, communitySettings, data.apiTransit.metrics.candidateOffers, data.apiTransit.metrics.failedRuns, data.apiTransit.metrics.pendingOffers, data.apiTransit.metrics.pendingStations, failedRunCount, officialPrices.currentPrices.length, pendingFeedbackCount, reviewSubmissions.length, sources.length, sponsorSettings, wholesalePendingLeadCount],
+    [apiModels.offers.length, apiTransitPendingSubmissionCount, collectionMonitoringIssueCount, collectorHealthIssueCount, collectorStatus.crawlRuns.length, collectorTodoSubmissions.length, communitySettings, data.apiTransit.metrics.candidateOffers, data.apiTransit.metrics.failedRuns, data.apiTransit.metrics.pendingOffers, data.apiTransit.metrics.pendingStations, failedRunCount, officialPrices.currentPrices.length, outboundAnalytics.totals.clicks30d, pendingFeedbackCount, reviewSubmissions.length, sources.length, sponsorSettings, wholesalePendingLeadCount],
   );
 
   /* ─── Keyboard shortcuts ─── */
@@ -3886,6 +3891,12 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
               </div>
             )}
 
+            {activeTab === "analytics" && (
+              <div role="tabpanel" id="tabpanel-analytics">
+                <OutboundAnalyticsPanel analytics={outboundAnalytics} />
+              </div>
+            )}
+
             {/* Infrastructure tab */}
             {activeTab === "infrastructure" && (
               <div role="tabpanel" id="tabpanel-infrastructure">
@@ -5744,6 +5755,113 @@ function MessageBox({ message, onDismiss }: { message: Message; onDismiss?: () =
       )}
     </div>
   );
+}
+
+function OutboundAnalyticsPanel({ analytics }: { analytics: OutboundAnalyticsData }) {
+  return (
+    <div className="space-y-4">
+      <Panel title="出站归因概览" icon={<BarChart3 size={17} />}>
+        <div className="grid gap-px overflow-hidden rounded-lg border border-[#e4e9ea] bg-[#e4e9ea] sm:grid-cols-2 xl:grid-cols-4">
+          <AnalyticsMetric label="30 天动作" value={analytics.totals.clicks30d} />
+          <AnalyticsMetric label="7 天动作" value={analytics.totals.clicks7d} />
+          <AnalyticsMetric label="30 天会话" value={analytics.totals.uniqueSessions30d} />
+          <AnalyticsMetric label="7 天会话" value={analytics.totals.uniqueSessions7d} />
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#5a6061]">
+          <span className={`rounded-full px-2 py-1 font-semibold ${analytics.tableReady ? "bg-[#e8f3ec] text-[#2f7a4b]" : "bg-[#fff7e8] text-[#7a541b]"}`}>
+            {analytics.tableReady ? "数据库已就绪" : "等待迁移"}
+          </span>
+          <span>统计窗口：最近 {analytics.windowDays} 天</span>
+          <span>更新：{formatRelativeTime(analytics.generatedAt)}</span>
+        </div>
+        {analytics.message ? <p className="mt-3 text-sm leading-6 text-[#7a541b]">{analytics.message}</p> : null}
+      </Panel>
+
+      <Panel title="事件分类" icon={<Activity size={17} />}>
+        {analytics.eventTotals.length ? (
+          <div className="grid gap-px overflow-hidden rounded-lg border border-[#e4e9ea] bg-[#e4e9ea] sm:grid-cols-2 xl:grid-cols-5">
+            {analytics.eventTotals.map((item) => (
+              <div key={item.eventType} className="bg-white px-4 py-3">
+                <p className="text-xs font-semibold text-[#5a6061]">{outboundEventLabel(item.eventType)}</p>
+                <p className="mt-1 text-xl font-bold tabular-nums text-[#202829]">{formatAnalyticsNumber(item.clickCount)}</p>
+                <p className="mt-1 text-xs text-[#7a8587]">{item.lastClickedAt ? formatRelativeTime(item.lastClickedAt) : "暂无记录"}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm leading-6 text-[#5a6061]">尚无出站事件。迁移上线后，商品、店铺、中转站和赞助位点击会在这里汇总。</p>
+        )}
+      </Panel>
+
+      <Panel title="归因对象明细" icon={<BarChart3 size={17} />}>
+        {analytics.topEntities.length ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-[860px] w-full text-left text-sm">
+              <thead className="text-xs text-[#7a8587]">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">事件</th>
+                  <th className="px-3 py-2 font-semibold">归因对象</th>
+                  <th className="px-3 py-2 font-semibold">来源 / 目标</th>
+                  <th className="px-3 py-2 font-semibold">动作</th>
+                  <th className="px-3 py-2 font-semibold">会话</th>
+                  <th className="px-3 py-2 font-semibold">最近</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#e4e9ea]">
+                {analytics.topEntities.slice(0, 100).map((row, index) => (
+                  <tr key={`${row.eventType}:${row.entityType}:${row.entityId}:${row.targetHost || "none"}:${index}`}>
+                    <td className="px-3 py-2 font-semibold text-[#202829]">{outboundEventLabel(row.eventType)}</td>
+                    <td className="px-3 py-2">
+                      <div className="max-w-[280px] truncate font-medium text-[#202829]">{row.entityId}</div>
+                      <div className="text-xs text-[#7a8587]">{outboundEntityLabel(row.entityType)}</div>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-[#5a6061]">
+                      <div>{row.sourceId || row.stationId || row.campaignId || "未关联"}</div>
+                      <div>{row.targetHost || "站内动作"}</div>
+                    </td>
+                    <td className="px-3 py-2 font-semibold tabular-nums text-[#202829]">{formatAnalyticsNumber(row.clickCount)}</td>
+                    <td className="px-3 py-2 tabular-nums text-[#5a6061]">{formatAnalyticsNumber(row.uniqueSessionCount)}</td>
+                    <td className="px-3 py-2 text-xs text-[#5a6061]">{row.lastClickedAt ? formatRelativeTime(row.lastClickedAt) : "暂无"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm leading-6 text-[#5a6061]">暂无可展示的归因对象。</p>
+        )}
+        <p className="mt-3 text-xs leading-5 text-[#7a8587]">当前阶段只记录点击和优惠码复制，不包含曝光、支付或成交转化。</p>
+      </Panel>
+    </div>
+  );
+}
+
+function AnalyticsMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-white px-4 py-3">
+      <p className="text-xs font-semibold text-[#5a6061]">{label}</p>
+      <p className="mt-1 text-2xl font-bold tabular-nums text-[#202829]">{formatAnalyticsNumber(value)}</p>
+    </div>
+  );
+}
+
+function outboundEventLabel(eventType: OutboundAnalyticsData["eventTotals"][number]["eventType"]): string {
+  if (eventType === "card_offer_click") return "商品出站";
+  if (eventType === "merchant_shop_click") return "店铺进店";
+  if (eventType === "api_transit_outbound_click") return "中转出站";
+  if (eventType === "api_transit_coupon_copy") return "优惠码复制";
+  return "赞助点击";
+}
+
+function outboundEntityLabel(entityType: OutboundAnalyticsData["topEntities"][number]["entityType"]): string {
+  if (entityType === "card_offer") return "商品报价";
+  if (entityType === "merchant") return "店铺";
+  if (entityType === "api_transit_station") return "中转站";
+  return "赞助活动";
+}
+
+function formatAnalyticsNumber(value: number): string {
+  return new Intl.NumberFormat("zh-CN").format(Math.max(0, value));
 }
 
 function AdminLoadErrors({ errors }: { errors: AdminSummary["loadErrors"] }) {

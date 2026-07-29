@@ -15,6 +15,7 @@ import { readSessionCache, writeSessionCache } from "@/lib/client-cache";
 import { useMediaQuery } from "@/lib/client-hooks";
 import { createTimeoutSignal, isGeneratedDatasetStale, newestUsableGeneratedDataset } from "@/lib/client-refresh";
 import { rewriteLdxpUrlHost } from "@/lib/ldxp-domain-settings-shared";
+import { trackOutboundEvent, withPriceAiUtm } from "@/lib/outbound-analytics-client";
 import {
   MERCHANT_COLLECTOR_FILTERS,
   merchantCollectorFilterLogo,
@@ -1880,7 +1881,8 @@ function OfferExitNoticeDialog({ offer, onClose }: { offer: RawOffer; onClose: (
 
   function continueToOffer() {
     if (muteToday) muteOfferExitNoticeToday();
-    window.open(rewriteLdxpUrlHost(offer.url) || offer.url, "_blank", "noopener,noreferrer");
+    trackCardOfferOutbound(offer, isAvailable(offer));
+    window.open(cardOfferOutboundUrl(offer), "_blank", "noopener,noreferrer");
     onClose();
   }
 
@@ -2168,7 +2170,7 @@ export function OfferLink({
   onRequestPurchase?: (offer: RawOffer) => void;
 }) {
   const [localOutboundOffer, setLocalOutboundOffer] = useState<RawOffer | null>(null);
-  const outboundUrl = rewriteLdxpUrlHost(offer.url) || offer.url;
+  const outboundUrl = cardOfferOutboundUrl(offer);
 
   return (
     <>
@@ -2181,7 +2183,10 @@ export function OfferLink({
             source_id: offer.sourceId || "unknown",
             available,
           });
-          if (isOfferExitNoticeMutedToday()) return;
+          if (isOfferExitNoticeMutedToday()) {
+            trackCardOfferOutbound(offer, available);
+            return;
+          }
           event.preventDefault();
           if (onRequestPurchase) {
             onRequestPurchase(offer);
@@ -2205,6 +2210,32 @@ export function OfferLink({
       ) : null}
     </>
   );
+}
+
+function cardOfferOutboundUrl(offer: RawOffer): string {
+  return withPriceAiUtm(rewriteLdxpUrlHost(offer.url) || offer.url, {
+    medium: "card_offer",
+    campaign: "priceai_card_shop",
+    content: offer.id,
+  });
+}
+
+function trackCardOfferOutbound(offer: RawOffer, available: boolean): void {
+  trackOutboundEvent({
+    eventType: "card_offer_click",
+    entityType: "card_offer",
+    entityId: offer.id,
+    offerId: offer.id,
+    sourceId: offer.sourceId || null,
+    productId: offer.canonicalProductId || offer.storedCanonicalProductId || null,
+    targetUrl: cardOfferOutboundUrl(offer),
+    metadata: {
+      available,
+      source_name: offer.sourceName,
+      collector_kind: offer.collectorKind || "",
+      status: offer.status,
+    },
+  });
 }
 
 export function OfferActions({
