@@ -16,7 +16,6 @@ import {
   Inbox,
   KeyRound,
   Loader2,
-  ImageUp,
   Pencil,
   RefreshCcw,
   Search,
@@ -29,6 +28,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AdminImageUploadButton } from "@/components/admin/AdminImageUploadButton";
 import type {
   ApiTransitAdminData,
   ApiTransitAdminOffer,
@@ -2581,20 +2581,11 @@ function StationLogoField({ station }: { station: ApiTransitAdminStation }) {
           className={adminFieldClassName}
           placeholder="留空则使用系统默认 Logo"
         />
-        <label className="inline-flex h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-semibold text-[#2d3435] transition hover:bg-[#f2f4f4]">
-          {uploading ? <Loader2 size={14} className="animate-spin" /> : <ImageUp size={14} />}
-          上传
-          <input
-            type="file"
-            accept="image/svg+xml,image/png,image/jpeg,image/webp"
-            className="sr-only"
-            disabled={uploading}
-            onChange={(event) => {
-              void uploadLogo(event.target.files?.[0]);
-              event.currentTarget.value = "";
-            }}
-          />
-        </label>
+        <AdminImageUploadButton
+          accept="image/svg+xml,image/png,image/jpeg,image/webp"
+          loading={uploading}
+          onSelect={(file) => void uploadLogo(file)}
+        />
       </div>
       <div className="flex min-h-8 items-center gap-2 text-xs text-[#5a6061]">
         {previewUrl ? (
