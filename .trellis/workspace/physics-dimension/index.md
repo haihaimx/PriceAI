@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 15
-- **Last Active**: 2026-07-28
+- **Total Sessions**: 16
+- **Last Active**: 2026-07-31
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~529 | Active |
+| `journal-1.md` | ~563 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | 日期 | 标题 | 提交数 | 分支 |
 |---|------|-------|---------|--------|
+| 16 | 2026-07-31 | 后台上传滚动白屏修复生产发布 | `af32ae2`, `7a50487` | `main` |
 | 15 | 2026-07-28 | Fix DragonAPI pricing and monitoring evidence | `ac6bb6632637d556403ca93f5cf72df56570e26c` | `main` |
 | 14 | 2026-07-27 | 取消目录分类底价并收紧 Plus 正价代充 | `673b582`, `91d6fcf` | `main` |
 | 13 | 2026-07-26 | 统一登录中间页与 Google 网络提示 | `65de0e4` `4cd74c5` | `main` |

@@ -173,7 +173,9 @@ Cloudflare Actions 29692031230 发布成功；生产 versionTag 与 Huoshan2 run
 
 ### Main Changes
 
-(Add details)
+- 将 `af32ae2` 从最新 `origin/main` 隔离摘取为 release commit `7a50487`，未包含本地 `892749a`。
+- Cloudflare workflow `30606558258` 完成候选烟测、production promotion 和生产 smoke，未触发回滚。
+- 归档 Trellis 任务并记录生产版本与 Chrome DOM 验收证据。
 
 ### Git Commits
 
@@ -183,7 +185,10 @@ Cloudflare Actions 29692031230 发布成功；生产 versionTag 与 Huoshan2 run
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] ESLint、TypeScript、Next.js/OpenNext 正式构建通过。
+- [OK] `/api/deployment` 返回 `platform=cloudflare`、目标 version ID 与 `versionTag=7a50487`。
+- [OK] `/admin?tab=sponsors`、`/api/health` 返回 200，响应包含 `server: cloudflare` 与 `x-opennext: 1`。
+- [OK] 生产 Chrome 中 9 个文件输入均隐藏且不占布局，上传触发器为按钮，`window.scrollY=0`，无控制台错误。
 
 ### Status
 
@@ -515,6 +520,40 @@ Supabase Preview 与生产 RPC 验证成功；Cloudflare Actions 29804093084 发
 | Hash | Message |
 |------|---------|
 | `ac6bb6632637d556403ca93f5cf72df56570e26c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 16: 后台上传滚动白屏修复生产发布
+
+**Date**: 2026-07-31
+**Task**: 后台上传滚动白屏修复生产发布
+**Branch**: `main`
+
+### Summary
+
+Cloudflare workflow 30606558258 成功；生产 versionTag=7a50487；后台文件输入均为 display:none 且 window.scrollY=0。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `af32ae2` | (see git log) |
+| `7a50487` | (see git log) |
 
 ### Testing
 
