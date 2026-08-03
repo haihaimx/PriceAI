@@ -822,7 +822,7 @@
     "riskLabels": ["insufficient_samples", "pending_feedback"],
     "summary": "DragonAPI 使用 New API 系统，公开价格、站方监测、发现文档与 transit 补充快照可读取；站长提交口径为 1:1 充值、自建号池、公司主体、支持普票及余额退款。PriceAI 保留 New API 主价格采集，并用补充快照校验价格和补充分组级公开监测。",
     "strengths": [
-      "2026-08-03 公开 /api/pricing 与 transit 补充快照一致返回 91 个模型和 9 个分组倍率，价格页可直接核验。",
+      "2026-08-03 公开 /api/pricing 与 transit 补充快照的模型全集和 9 个分组倍率一致，价格页可直接核验；模型数量会随站方上下架动态变化。",
       "公开 transit 补充快照返回模型与分组维度的近 24 小时请求量、成功率、平均延迟和 TTFT，并明确声明全部分组由本站自建号池供给。",
       "公开 /api/perf-metrics/summary?period=24 与独立 /status 监测页可读取，PriceAI 可保留现有模型级监测作为主链路。",
       "站长提交了运营时长、使用规模、充值倍率、模型来源、退款、公司主体和发票规则，后台资料完整度较高。"
@@ -871,11 +871,11 @@
         "source": "priceai",
         "status": "success",
         "title": "公开 transit 发现文档与补充快照可读取",
-        "description": "2026-08-03 检查 /.well-known/ai-transit.json 与 /api/public/transit/v1/snapshot 均返回 200，快照与 /api/pricing 一致返回 91 个模型和 9 个分组，另含 34 个模型的近 24 小时真实流量聚合监测；该 schema 为站方 1.0 方言，PriceAI 通过兼容层读取，不视为标准 ai-transit.v1 或 API Key 实测。",
+        "description": "2026-08-03 检查 /.well-known/ai-transit.json 与 /api/public/transit/v1/snapshot 均返回 200，核验时快照与 /api/pricing 的模型全集及 9 个分组一致，另含模型级近 24 小时真实流量聚合监测；模型和监测项数量会随站方上下架与流量窗口动态变化。该 schema 为站方 1.0 方言，PriceAI 通过兼容层读取，不视为标准 ai-transit.v1 或 API Key 实测。",
         "happenedAt": "2026-08-03T05:50:02.000Z"
       }
     ],
-    "adminNote": "用户提交名称为 DraonAPI；PriceAI 按 /api/status 与域名核验后以 DragonAPI 作为标准站点名。用户提交口径：New API 系统 / 官网 https://newapi.dragon3api.com / 公开价格页 https://newapi.dragon3api.com/pricing / 公开监测页 https://newapi.dragon3api.com/status / 已运营 1 个月 / 每日 30b / 1:1 充值 / Codex 0.045 / CCMax 0.75 / 自建号池 / 余额可退、联系客服 / 公司主体 / 支持普票、4% 税点、约一个月；本次未附运营与规模截图。PriceAI 2026-08-03 核验：/api/pricing 与 transit 补充快照一致返回 91 个模型和 9 个分组，当前 gpt-特惠 0.08、gpt-plus 0.12、gpt-pro 0.20、claude max 号池 0.85；快照另含 34 个模型的近 24 小时真实流量聚合监测和 self_hosted 自建号池声明。发现文档与快照使用站方 schema_version=1.0 方言，PriceAI 保留 /api/pricing 主链路并通过兼容层补充分组级监测；站方监测非 API Key 实测，/v1/models 仍需 API Key。当前 autoPublish=false，不自动改变既有人工审核与展示状态；仍需确认倍率差异、30b 的统计单位及截图、公司与开票资料、售后入口和测试 Key。"
+    "adminNote": "用户提交名称为 DraonAPI；PriceAI 按 /api/status 与域名核验后以 DragonAPI 作为标准站点名。用户提交口径：New API 系统 / 官网 https://newapi.dragon3api.com / 公开价格页 https://newapi.dragon3api.com/pricing / 公开监测页 https://newapi.dragon3api.com/status / 已运营 1 个月 / 每日 30b / 1:1 充值 / Codex 0.045 / CCMax 0.75 / 自建号池 / 余额可退、联系客服 / 公司主体 / 支持普票、4% 税点、约一个月；本次未附运营与规模截图。PriceAI 2026-08-03 核验：/api/pricing 与 transit 补充快照的模型全集和 9 个分组一致，当前 gpt-特惠 0.08、gpt-plus 0.12、gpt-pro 0.20、claude max 号池 0.85；快照另含模型级近 24 小时真实流量聚合监测和 self_hosted 自建号池声明，具体模型与监测项数量会动态变化。发现文档与快照使用站方 schema_version=1.0 方言，PriceAI 保留 /api/pricing 主链路并通过兼容层补充分组级监测；站方监测非 API Key 实测，/v1/models 仍需 API Key。当前 autoPublish=false，不自动改变既有人工审核与展示状态；仍需确认倍率差异、30b 的统计单位及截图、公司与开票资料、售后入口和测试 Key。"
   },
   {
     "id": "hejuapi-com",

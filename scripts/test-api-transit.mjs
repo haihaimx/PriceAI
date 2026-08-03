@@ -1257,6 +1257,23 @@ const mismatchedDragonSnapshot = __test.compareNewApiPricingWithTransitSnapshot(
 );
 assert.equal(mismatchedDragonSnapshot.status, "mismatch");
 assert.ok(mismatchedDragonSnapshot.mismatches.some((message) => message.includes("gpt-plus")));
+const refreshWindowDriftSnapshot = __test.compareNewApiPricingWithTransitSnapshot(
+  dragonPrimaryPricingFixture,
+  {
+    ...adaptedDragonTransitSnapshot.pricing,
+    data: [
+      ...adaptedDragonTransitSnapshot.pricing.data,
+      {
+        ...adaptedDragonTransitSnapshot.pricing.data[0],
+        model_name: "snapshot-refresh-window-model",
+      },
+    ],
+  },
+);
+assert.equal(refreshWindowDriftSnapshot.status, "mismatch");
+assert.equal(refreshWindowDriftSnapshot.primaryModelCount, 1);
+assert.equal(refreshWindowDriftSnapshot.snapshotModelCount, 2);
+assert.ok(refreshWindowDriftSnapshot.mismatches.some((message) => message.includes("模型数量不一致")));
 
 const dragonPricingParsed = __test.parsePricingPayload(
   configuredDragonapiSource,
