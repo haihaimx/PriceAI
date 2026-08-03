@@ -9,6 +9,25 @@ import { __test } from "./collect-api-transit.mjs";
 import { COLLECTOR_RUNTIME_SOURCE_FILES } from "./collector-runtime-policy.mjs";
 
 const collectorRuntimeSources = new Set(COLLECTOR_RUNTIME_SOURCE_FILES);
+const collectorRuntimeSourceSync = readFileSync(
+  new URL("./sync-collector-runtime-source.mjs", import.meta.url),
+  "utf8",
+);
+assert.match(
+  collectorRuntimeSourceSync,
+  /current_real=.*readlink -f .*\/current/,
+  "Source sync must resolve the active artifact release behind current/.",
+);
+assert.match(
+  collectorRuntimeSourceSync,
+  /target_roots=.*remote_root[\s\S]*target_roots\+=.*active_root/,
+  "Source sync must update both the runtime root fallback and active artifact release.",
+);
+assert.match(
+  collectorRuntimeSourceSync,
+  /for target_root in .*target_roots/,
+  "Source sync must checksum every runtime target after copying source files.",
+);
 for (const sourceFile of COLLECTOR_RUNTIME_SOURCE_FILES.filter((file) => file.endsWith(".mjs"))) {
   const source = readFileSync(new URL(`../${sourceFile}`, import.meta.url), "utf8");
   for (const match of source.matchAll(/from\s+["'](\.\/[^"']+\.mjs)["']/g)) {
