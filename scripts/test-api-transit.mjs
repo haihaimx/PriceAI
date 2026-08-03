@@ -281,6 +281,14 @@ assert.equal(configuredDragonapiSource.websiteUrl, "https://newapi.dragon3api.co
 assert.equal(configuredDragonapiSource.apiBaseUrl, "https://newapi.dragon3api.com/v1");
 assert.equal(configuredDragonapiSource.pricingUrl, "https://newapi.dragon3api.com/pricing");
 assert.equal(configuredDragonapiSource.pricingEndpointUrl, "https://newapi.dragon3api.com/api/pricing");
+assert.equal(
+  configuredDragonapiSource.discoveryUrl,
+  "https://newapi.dragon3api.com/.well-known/ai-transit.json",
+);
+assert.equal(
+  configuredDragonapiSource.snapshotEndpointUrl,
+  "https://newapi.dragon3api.com/api/public/transit/v1/snapshot",
+);
 assert.equal(configuredDragonapiSource.monitorUrl, "https://newapi.dragon3api.com/status");
 assert.equal(
   configuredDragonapiSource.monitorEndpointUrl,
@@ -298,9 +306,14 @@ assert.ok(
   "DragonAPI 后台备注必须保留站长提交的主流模型倍率。",
 );
 assert.ok(
-  configuredDragonapiSource.adminNote.includes("gpt-特惠 当前为 0.05") &&
-    configuredDragonapiSource.adminNote.includes("claude max 号池为 0.85"),
+  configuredDragonapiSource.adminNote.includes("gpt-特惠 0.08") &&
+    configuredDragonapiSource.adminNote.includes("claude max 号池 0.85"),
   "DragonAPI 后台备注必须保留公开价格与站长提交口径的差异。",
+);
+assert.ok(
+  configuredDragonapiSource.adminNote.includes("schema_version=1.0") &&
+    configuredDragonapiSource.adminNote.includes("兼容层"),
+  "DragonAPI 后台备注必须说明补充快照协议方言与兼容边界。",
 );
 assert.ok(
   configuredDragonapiSource.adminNote.includes("autoPublish=false"),
@@ -1148,6 +1161,123 @@ assert.match(legacyNewApiGptOffer.availability_note, /performance summary 近 24
 assert.equal(legacyNewApiParsed.station.availability_seven_day_rate, 0.9744);
 assert.equal(legacyNewApiParsed.station.availability_seven_day_samples, 6);
 assert.match(legacyNewApiParsed.station.availability_note, /2 个标准模型/);
+
+const dragonPrimaryPricingFixture = {
+  data: [
+    {
+      model_name: "gpt-5.5",
+      model_ratio: 2.5,
+      completion_ratio: 6,
+      model_price: 0,
+      cache_ratio: 0.1,
+      create_cache_ratio: 1.25,
+      enable_groups: ["gpt-plus", "gpt-pro"],
+      supported_endpoint_types: ["openai"],
+    },
+  ],
+  group_ratio: {
+    "gpt-plus": 0.12,
+    "gpt-pro": 0.2,
+  },
+};
+const dragonTransitSnapshotFixture = {
+  schema_version: "1.0",
+  generated_at: "2026-08-03T05:50:02Z",
+  site: {
+    name: "Dragon3 API",
+    url: "https://newapi.dragon3api.com",
+    system: "new-api",
+  },
+  channel_source: {
+    type: "self_hosted",
+    label: "自建",
+  },
+  groups: {
+    "gpt-plus": { ratio: 0.12, source: "self_hosted", model_count: 1 },
+    "gpt-pro": { ratio: 0.2, source: "self_hosted", model_count: 1 },
+  },
+  models: [
+    {
+      name: "gpt-5.5",
+      vendor: "OpenAI",
+      billing_type: "per_token",
+      model_ratio: 2.5,
+      completion_ratio: 6,
+      model_price: 0,
+      cache_read_ratio: 0.1,
+      cache_write_ratio: 1.25,
+      groups: ["gpt-plus", "gpt-pro"],
+      endpoint_types: ["openai"],
+    },
+  ],
+  monitoring: {
+    window_hours: 24,
+    source: "real_traffic_aggregation",
+    models: {
+      "gpt-5.5": {
+        requests: 1000,
+        success_rate: 0.95,
+        avg_latency_ms: 28000,
+        avg_ttft_ms: 13000,
+        by_group: {
+          "gpt-plus": { requests: 700, success_rate: 0.98 },
+          "gpt-pro": { requests: 300, success_rate: 0.999 },
+        },
+      },
+      "gpt-5.5-openai-compact": {
+        requests: 10,
+        success_rate: 0.1,
+        avg_latency_ms: 1000,
+        avg_ttft_ms: null,
+        by_group: {
+          "gpt-plus": { requests: 10, success_rate: 0.1 },
+        },
+      },
+    },
+  },
+};
+const adaptedDragonTransitSnapshot = __test.adaptNewApiTransitSnapshot(dragonTransitSnapshotFixture);
+assert.equal(adaptedDragonTransitSnapshot.schemaVersion, "1.0");
+assert.equal(adaptedDragonTransitSnapshot.pricing.data.length, 1);
+assert.equal(adaptedDragonTransitSnapshot.pricing.group_ratio["gpt-plus"], 0.12);
+assert.equal(adaptedDragonTransitSnapshot.pricing.data[0].cache_ratio, 0.1);
+assert.equal(adaptedDragonTransitSnapshot.pricing.data[0].create_cache_ratio, 1.25);
+const matchingDragonSnapshot = __test.compareNewApiPricingWithTransitSnapshot(
+  dragonPrimaryPricingFixture,
+  adaptedDragonTransitSnapshot.pricing,
+);
+assert.equal(matchingDragonSnapshot.status, "match");
+assert.equal(matchingDragonSnapshot.mismatchCount, 0);
+const mismatchedDragonSnapshot = __test.compareNewApiPricingWithTransitSnapshot(
+  dragonPrimaryPricingFixture,
+  {
+    ...adaptedDragonTransitSnapshot.pricing,
+    group_ratio: { ...adaptedDragonTransitSnapshot.pricing.group_ratio, "gpt-plus": 0.13 },
+  },
+);
+assert.equal(mismatchedDragonSnapshot.status, "mismatch");
+assert.ok(mismatchedDragonSnapshot.mismatches.some((message) => message.includes("gpt-plus")));
+
+const dragonPricingParsed = __test.parsePricingPayload(
+  configuredDragonapiSource,
+  dragonPrimaryPricingFixture,
+  "2026-08-03T05:50:02Z",
+);
+assert.equal(dragonPricingParsed.offers.length, 2);
+__test.applyNewApiTransitSnapshotAvailability(
+  configuredDragonapiSource,
+  dragonPricingParsed,
+  adaptedDragonTransitSnapshot,
+  "2026-08-03T05:50:02Z",
+);
+const dragonPlusOffer = dragonPricingParsed.offers.find((offer) => offer.group_name === "gpt-plus");
+assert.equal(dragonPlusOffer.availability_seven_day_rate, 0.98);
+assert.equal(dragonPlusOffer.availability_seven_day_samples, 1);
+assert.equal(dragonPlusOffer.availability_match_level, "exact");
+assert.equal(dragonPlusOffer.availability_source_label, "公开 transit 快照");
+assert.equal(dragonPlusOffer.availability_source_url, configuredDragonapiSource.snapshotEndpointUrl);
+assert.equal(dragonPlusOffer.raw_payload.supplemental_transit_snapshot.requests, 700);
+assert.match(dragonPlusOffer.availability_note, /聚合值按 1 个公开状态样本记录/);
 
 const rtocSnapshotParsed = __test.parsePricingPayload(
   configuredRtocSource,
