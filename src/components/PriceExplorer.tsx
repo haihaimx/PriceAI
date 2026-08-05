@@ -11,7 +11,6 @@ import {
   LayoutGrid,
   Layers3,
   PackageCheck,
-  Plus,
   Search,
   Store,
   Table2,
@@ -833,11 +832,11 @@ export function PriceExplorer({
                 <button
                   type="button"
                   onClick={openSubmission}
-                  className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#2d3435] px-3 text-sm font-semibold text-[#f8f8f8] md:hidden"
-                  aria-label="提交新的卡网订阅渠道"
+                  className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#e8f3ec] px-3 text-sm font-semibold text-[#2f7a4b] ring-1 ring-[#2f7a4b]/20 transition hover:bg-[#ddefe4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f7a4b]/45 md:hidden"
+                  aria-label="申请收录自营店铺"
                 >
-                  <Plus size={15} />
-                  <span className="hidden min-[380px]:inline">提交</span>
+                  <Store size={15} />
+                  <span>申请收录</span>
                 </button>
               </div>
               <p className="mt-3 hidden max-w-[78ch] text-sm leading-7 text-[#5a6061] md:block">
@@ -992,11 +991,11 @@ export function PriceExplorer({
             <button
               type="button"
               onClick={openSubmission}
-              aria-label="提交新的卡网订阅渠道"
-              className="hidden h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[#2d3435] px-5 text-sm font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526] md:inline-flex"
+              aria-label="申请收录自营店铺"
+              className="hidden h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[#e8f3ec] px-5 text-sm font-semibold text-[#2f7a4b] ring-1 ring-[#2f7a4b]/20 transition hover:bg-[#ddefe4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f7a4b]/45 md:inline-flex"
             >
-              <Plus size={16} />
-              提交渠道
+              <Store size={16} />
+              申请收录
             </button>
           </div>
           {activeFilterChips.length ? (
