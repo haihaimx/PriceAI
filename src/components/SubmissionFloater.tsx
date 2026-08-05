@@ -105,7 +105,7 @@ export function SubmissionFloater() {
       });
       setMessage(failed > 0
         ? "申请未完整提交，请检查店铺入口后重试。"
-        : "申请已收到。请通过 QQ 提供脱敏的店铺后台运营截图，核验通过后再进入试采集和收录。");
+        : "申请已收到。请通过 QQ 或 Telegram 提供脱敏的店铺后台运营截图，核验通过后再进入试采集和收录。");
       setStoreUrl("");
       formRef.current?.reset();
     } catch (error) {
@@ -160,7 +160,7 @@ export function SubmissionFloater() {
                   <span>{message}</span>
                 </div>
                 <CommunityPrompt>
-                  加入 PriceAI QQ 交流群，发送申请信息和脱敏运营截图。
+                  可通过 QQ 或 Telegram 发送申请信息和脱敏运营截图。
                 </CommunityPrompt>
               </div>
             ) : null}
@@ -190,13 +190,12 @@ export function SubmissionFloater() {
                     className={`${fieldControlClassName} h-10`}
                   />
                 </Field>
-                <Field label="联系 QQ" required>
+                <Field label="联系方式（可选）">
                   <input
                     name="contact"
                     type="text"
-                    required
                     maxLength={200}
-                    placeholder="填写 QQ，便于核验申请"
+                    placeholder="QQ / Telegram，任选一种"
                     className={`${fieldControlClassName} h-10`}
                   />
                 </Field>

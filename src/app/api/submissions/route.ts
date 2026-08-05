@@ -37,7 +37,6 @@ function getErrorStatus(error: unknown, message: string): number {
   if (
     message.includes("URL 格式") ||
     message.includes("一次只能申请") ||
-    message.includes("联系 QQ") ||
     message.includes("仅支持") ||
     message.includes("不允许") ||
     message.includes("无法解析")
@@ -75,11 +74,6 @@ export async function POST(request: Request) {
     if (urls.length > 1) {
       return Response.json({ ok: false, message: "一次只能申请一个店铺。" }, { status: 400 });
     }
-    const contact = payload.contact?.trim();
-    if (!contact) {
-      return Response.json({ ok: false, message: "请填写联系 QQ。" }, { status: 400 });
-    }
-
     const results = [];
 
     for (const url of urls) {
@@ -87,7 +81,7 @@ export async function POST(request: Request) {
         const result = await createSubmission({
           url,
           name: payload.name ?? null,
-          contact,
+          contact: payload.contact?.trim() || null,
           notes: payload.notes ?? null,
           honeypot: null,
           submitterIp,

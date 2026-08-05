@@ -52,7 +52,7 @@ const verificationSteps = [
 const communityActions = [
   {
     title: "申请收录自营店铺",
-    text: "PriceAI 目前仅接受自营店铺申请。店内 AI 相关在售商品原则上不超过 25 个，并需要具备有价格优势的商品。提交申请后，请通过 QQ 提供脱敏运营截图，核验通过后再进入试采集和收录。",
+    text: "PriceAI 目前仅接受自营店铺申请。店内 AI 相关在售商品原则上不超过 25 个，并需要具备有价格优势的商品。提交申请后，可通过 QQ 或 Telegram 提供脱敏运营截图，核验通过后再进入试采集和收录。",
     href: "/channels#submit-channel",
     label: "申请收录",
     icon: Send,
