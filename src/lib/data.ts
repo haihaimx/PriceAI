@@ -178,6 +178,7 @@ const PRIMARY_COLLECTOR_NODE_IDS = new Set([
   "aliyun7-heyuan-shop-vip-scheduler-lane-1",
   "aliyun7-new-47-121-priceai-qxvx",
   "aliyun7-new-47-121-priceai-yunmao",
+  "shanghai-hot-1",
 ]);
 const PUBLIC_EXPLORER_SNAPSHOT_KEY = "default";
 const PUBLIC_OFFERS_SNAPSHOT_LIMIT = PUBLIC_OFFER_DEFAULT_LIMIT;

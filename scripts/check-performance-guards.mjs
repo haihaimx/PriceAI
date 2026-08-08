@@ -511,6 +511,8 @@ assert(/PRICEAI_HOT_VERIFY_PROXY_REUSE_TTL_MS=600000/.test(hotVerifierEnvExample
 assert(/PRICEAI_HOT_VERIFY_PROXY_MAX_RUNS=2/.test(hotVerifierEnvExampleText), "hot offer verifier env must cap proxy leases at two runs.");
 assert(/PRICEAI_HOT_VERIFY_STICKY_CANDIDATE_MS=1800000/.test(hotVerifierEnvExampleText), "hot offer verifier env must keep the thirty-minute sticky candidate window.");
 assert(/PRICEAI_HOT_VERIFY_STALE_ALERT_MS=1200000/.test(hotVerifierEnvExampleText), "hot offer verifier env must keep the twenty-minute stale alert threshold.");
+const collectorDataText = read("src/lib/data.ts");
+assert(/"shanghai-hot-1"/.test(collectorDataText), "collector health must surface the Shanghai hot verifier node.");
 
 for (const file of listSourceFiles(["src/app", "src/lib"])) {
   if (!isPublicRuntimeFile(file)) continue;
