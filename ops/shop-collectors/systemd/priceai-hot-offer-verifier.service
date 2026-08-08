@@ -16,4 +16,4 @@ ExecStart=/opt/priceai-worker/run-hot-offer-verifier.sh
 Nice=5
 IOSchedulingClass=best-effort
 IOSchedulingPriority=6
-TimeoutStartSec=290
+TimeoutStartSec=510

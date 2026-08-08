@@ -668,6 +668,7 @@ export {
   blockShopApiDirectExitForTarget,
   calculateShopApiBuyerAdjustment,
   collectorHeartbeatForWritebackFailure,
+  postCollectorHeartbeat,
   cooldownSkipReason,
   createShopApiProxyReusePool,
   createShopApiVisitorId,
@@ -3612,6 +3613,8 @@ async function postCollectorHeartbeat(status, options = {}, input = {}) {
 }
 
 function collectorHeartbeatScopeForOptions(options = {}) {
+  if (options.heartbeatScope) return String(options.heartbeatScope);
+
   const selected = options.source || options.id || options.name;
   if (selected) return `source:${String(selected)}`;
 

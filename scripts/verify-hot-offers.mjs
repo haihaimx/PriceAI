@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -8,6 +10,7 @@ import {
   collectTargetWithRetries,
   createShopApiProxyReusePool,
   loadTargets,
+  postCollectorHeartbeat,
   postCrawlLog,
   releaseCollectionLock,
   restoreShopApiProxyReusePool,
@@ -30,6 +33,8 @@ const DEFAULT_MAX_DURATION_MS = 270_000;
 const DEFAULT_RECENT_REUSE_MS = 90_000;
 const DEFAULT_REQUEST_DELAY_MS = 1_500;
 const DEFAULT_PRICE_TOLERANCE = 0.05;
+const DEFAULT_STICKY_CANDIDATE_MS = 30 * 60_000;
+const DEFAULT_STALE_ALERT_MS = 20 * 60_000;
 
 export async function runHotOfferVerification(options = {}) {
   const startedAtMs = Date.now();
@@ -44,6 +49,19 @@ export async function runHotOfferVerification(options = {}) {
   const maxDurationMs = integerInRange(options.maxDurationMs, 30_000, 15 * 60_000, DEFAULT_MAX_DURATION_MS);
   const recentReuseMs = integerInRange(options.recentReuseMs, 0, 10 * 60_000, DEFAULT_RECENT_REUSE_MS);
   const requestDelayMs = integerInRange(options.requestDelayMs, 0, 30_000, DEFAULT_REQUEST_DELAY_MS);
+  const stickyCandidateMs = integerInRange(
+    options.stickyCandidateMs,
+    0,
+    24 * 60 * 60_000,
+    DEFAULT_STICKY_CANDIDATE_MS,
+  );
+  const staleAlertMs = integerInRange(
+    options.staleAlertMs,
+    60_000,
+    24 * 60 * 60_000,
+    DEFAULT_STALE_ALERT_MS,
+  );
+  const candidateStatePath = String(options.candidateStatePath || "").trim() || null;
   const takeoverAfterMs = integerInRange(
     options.takeoverAfterMs,
     0,
@@ -72,12 +90,20 @@ export async function runHotOfferVerification(options = {}) {
     collectorNodeType: "vps",
     collectorNodeRuntime: "systemd-hot-verifier",
     collectorNodeRegion: options.nodeRegion || process.env.PRICEAI_COLLECTOR_NODE_REGION || "cn",
+    heartbeatScope: "hot-offers:plus-team",
     pageDelayMs: Math.min(requestDelayMs, 250),
   };
 
   try {
     const sliceResults = await fetchHotOfferSlices({ endpoint, sliceLimit, fetchImpl: options.fetchImpl || fetch });
-    const candidates = mergeHotOfferCandidates(sliceResults, { hardLimit });
+    const currentCandidates = mergeHotOfferCandidates(sliceResults, { hardLimit });
+    const storedCandidates = loadHotCandidateState(candidateStatePath, { nowMs: startedAtMs, stickyCandidateMs });
+    const candidatePool = mergeHotCandidatePool(currentCandidates, storedCandidates, {
+      nowMs: startedAtMs,
+      stickyCandidateMs,
+      hardLimit,
+    });
+    const candidates = candidatePool.candidates;
     const primaryAssigned = candidates.filter((candidate) => hotOfferShardIndex(candidate, nodeCount) === nodeIndex);
     const takeoverAssigned = takeoverAfterMs > 0
       ? candidates.filter((candidate) =>
@@ -92,7 +118,10 @@ export async function runHotOfferVerification(options = {}) {
       nodeIndex,
       nodeCount,
       sliceCount: sliceResults.length,
+      currentCandidateCount: currentCandidates.length,
       candidateCount: candidates.length,
+      stickyCandidateCount: candidatePool.stickyCandidateCount,
+      compensationCandidateCount: 0,
       assignedCount: assigned.length,
       takeoverCount: takeoverAssigned.length,
       sourceCount: groups.length,
@@ -103,13 +132,25 @@ export async function runHotOfferVerification(options = {}) {
       writeFailedCount: 0,
       skippedCount: 0,
       failedCount: 0,
+      unsupportedSourceCount: groups.filter((group) => {
+        const kind = targetBySourceId.get(group.sourceId)?.kind;
+        return !["shopApi", "kami", "dujiao"].includes(kind);
+      }).length,
+      unsupportedCandidateCount: groups.reduce((count, group) => {
+        const kind = targetBySourceId.get(group.sourceId)?.kind;
+        return count + (["shopApi", "kami", "dujiao"].includes(kind) ? 0 : group.candidates.length);
+      }, 0),
+      staleCandidateCount: candidates.filter((candidate) => candidateAgeMs(candidate, startedAtMs) > staleAlertMs).length,
+      staleAlertMinutes: Math.round(staleAlertMs / 60_000),
       proxyCount: 0,
       deadlineReached: false,
+      durationMs: 0,
       startedAt,
       finishedAt: null,
     };
 
     console.log(JSON.stringify({ event: "hot-verification-plan", ...summary }));
+    await postHotVerifierHeartbeat("running", summary, collectorOptions, options.heartbeatImpl);
 
     for (const group of groups) {
       if (Date.now() - startedAtMs >= maxDurationMs) {
@@ -277,8 +318,25 @@ export async function runHotOfferVerification(options = {}) {
       }
     }
 
+    try {
+      const finalSliceResults = await fetchHotOfferSlices({ endpoint, sliceLimit, fetchImpl: options.fetchImpl || fetch });
+      const finalCandidates = mergeHotOfferCandidates(finalSliceResults, { hardLimit });
+      const initialIds = new Set(currentCandidates.map((candidate) => candidate.id));
+      summary.compensationCandidateCount = finalCandidates.filter((candidate) => !initialIds.has(candidate.id)).length;
+      persistHotCandidateState(candidateStatePath, mergeHotCandidatePool(
+        finalCandidates,
+        candidatePool.stateEntries,
+        { nowMs: Date.now(), stickyCandidateMs, hardLimit },
+      ).stateEntries);
+    } catch (error) {
+      console.error(JSON.stringify({ event: "hot-verification-compensation-error", message: errorMessage(error) }));
+      persistHotCandidateState(candidateStatePath, candidatePool.stateEntries);
+    }
+
     summary.finishedAt = new Date().toISOString();
+    summary.durationMs = Date.now() - startedAtMs;
     console.log(JSON.stringify({ event: "hot-verification-summary", ...summary }));
+    await postHotVerifierHeartbeat(hotVerifierHeartbeatStatus(summary), summary, collectorOptions, options.heartbeatImpl);
     return summary;
   } finally {
     await closeShopApiProxyReusePool(proxyPool);
@@ -322,6 +380,89 @@ export function mergeHotOfferCandidates(sliceResults, { hardLimit = DEFAULT_HARD
     }
   }
   return [...byId.values()].slice(0, Math.max(1, hardLimit));
+}
+
+export function mergeHotCandidatePool(currentCandidates, storedEntries = [], {
+  nowMs = Date.now(),
+  stickyCandidateMs = DEFAULT_STICKY_CANDIDATE_MS,
+  hardLimit = DEFAULT_HARD_LIMIT,
+} = {}) {
+  const currentById = new Map();
+  for (const candidate of currentCandidates || []) {
+    if (!candidate?.id) continue;
+    currentById.set(candidate.id, {
+      candidate: { ...candidate, hotSticky: false },
+      lastRankedAt: new Date(nowMs).toISOString(),
+    });
+  }
+
+  const stickyEntries = [];
+  for (const entry of storedEntries || []) {
+    const id = String(entry?.candidate?.id || "").trim();
+    const lastRankedAtMs = Date.parse(entry?.lastRankedAt || "");
+    if (!id || currentById.has(id) || !Number.isFinite(lastRankedAtMs)) continue;
+    if (stickyCandidateMs <= 0 || nowMs - lastRankedAtMs > stickyCandidateMs || nowMs < lastRankedAtMs) continue;
+    stickyEntries.push({
+      candidate: { ...entry.candidate, hotSticky: true },
+      lastRankedAt: new Date(lastRankedAtMs).toISOString(),
+    });
+  }
+
+  stickyEntries.sort((left, right) => candidateAgeMs(right.candidate, nowMs) - candidateAgeMs(left.candidate, nowMs));
+  const allEntries = [
+    ...currentById.values(),
+    ...stickyEntries,
+  ];
+  const selectedEntries = allEntries.slice(0, Math.max(1, hardLimit));
+  selectedEntries.sort((left, right) => {
+    const ageDifference = candidateAgeMs(right.candidate, nowMs) - candidateAgeMs(left.candidate, nowMs);
+    return ageDifference || String(left.candidate.id).localeCompare(String(right.candidate.id));
+  });
+
+  return {
+    candidates: selectedEntries.map((entry) => entry.candidate),
+    stateEntries: allEntries.slice(0, Math.max(1, hardLimit * 2)).map((entry) => ({
+      candidate: { ...entry.candidate, hotSticky: undefined },
+      lastRankedAt: entry.lastRankedAt,
+    })),
+    stickyCandidateCount: selectedEntries.filter((entry) => !currentById.has(entry.candidate.id)).length,
+  };
+}
+
+export function loadHotCandidateState(statePath, {
+  nowMs = Date.now(),
+  stickyCandidateMs = DEFAULT_STICKY_CANDIDATE_MS,
+} = {}) {
+  if (!statePath || !existsSync(statePath)) return [];
+  try {
+    const stored = JSON.parse(readFileSync(statePath, "utf8"));
+    const entries = Array.isArray(stored?.entries) ? stored.entries : [];
+    return entries.filter((entry) => {
+      const lastRankedAtMs = Date.parse(entry?.lastRankedAt || "");
+      return entry?.candidate?.id && Number.isFinite(lastRankedAtMs) &&
+        nowMs >= lastRankedAtMs && nowMs - lastRankedAtMs <= stickyCandidateMs;
+    });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "hot-candidate-state-invalid", message: errorMessage(error) }));
+    rmSync(statePath, { force: true });
+    return [];
+  }
+}
+
+export function persistHotCandidateState(statePath, entries) {
+  if (!statePath) return false;
+  const temporaryPath = `${statePath}.${process.pid}.tmp`;
+  try {
+    mkdirSync(dirname(statePath), { recursive: true, mode: 0o700 });
+    writeFileSync(temporaryPath, `${JSON.stringify({ version: 1, entries })}\n`, { mode: 0o600 });
+    renameSync(temporaryPath, statePath);
+    chmodSync(statePath, 0o600);
+    return true;
+  } catch (error) {
+    rmSync(temporaryPath, { force: true });
+    console.error(JSON.stringify({ event: "hot-candidate-state-write-error", message: errorMessage(error) }));
+    return false;
+  }
 }
 
 export function hotOfferShardIndex(candidate, nodeCount) {
@@ -476,9 +617,60 @@ function isRecentCandidate(candidate, recentReuseMs) {
   return Number.isFinite(timestamp) && Date.now() - timestamp >= 0 && Date.now() - timestamp <= recentReuseMs;
 }
 
-function candidateAgeMs(candidate) {
+function candidateAgeMs(candidate, nowMs = Date.now()) {
   const timestamp = Date.parse(candidate?.verifiedAt || candidate?.lastSeenAt || "");
-  return Number.isFinite(timestamp) ? Math.max(0, Date.now() - timestamp) : Number.POSITIVE_INFINITY;
+  return Number.isFinite(timestamp) ? Math.max(0, nowMs - timestamp) : Number.POSITIVE_INFINITY;
+}
+
+export function hotVerifierHeartbeatStatus(summary) {
+  if (summary.deadlineReached || summary.failedCount > 0 || summary.writeFailedCount > 0 ||
+      summary.staleCandidateCount > 0 || summary.unsupportedCandidateCount > 0) return "partial";
+  return summary.verifiedCount > 0 || summary.reusedCount > 0 ? "success" : "idle";
+}
+
+async function postHotVerifierHeartbeat(status, summary, collectorOptions, heartbeatImpl = postCollectorHeartbeat) {
+  try {
+    await heartbeatImpl(status, collectorOptions, {
+      startedAt: summary.startedAt,
+      finishedAt: status === "running" ? null : summary.finishedAt,
+      successCount: summary.verifiedCount,
+      failureCount: summary.failedCount + summary.writeFailedCount,
+      skippedCount: summary.skippedCount,
+      offerCount: summary.candidateCount,
+      message: status === "running"
+        ? `热门报价核验开始：候选 ${summary.candidateCount} 条。`
+        : `热门报价核验完成：确认 ${summary.verifiedCount} 条，超过 ${summary.staleAlertMinutes} 分钟 ${summary.staleCandidateCount} 条，补偿 ${summary.compensationCandidateCount} 条。`,
+      details: {
+        hotVerification: true,
+        mode: summary.mode,
+        nodeIndex: summary.nodeIndex,
+        nodeCount: summary.nodeCount,
+        currentCandidateCount: summary.currentCandidateCount,
+        candidateCount: summary.candidateCount,
+        stickyCandidateCount: summary.stickyCandidateCount,
+        compensationCandidateCount: summary.compensationCandidateCount,
+        assignedCount: summary.assignedCount,
+        takeoverCount: summary.takeoverCount,
+        sourceCount: summary.sourceCount,
+        verifiedCount: summary.verifiedCount,
+        changedCount: summary.changedCount,
+        writtenCount: summary.writtenCount,
+        writeFailedCount: summary.writeFailedCount,
+        reusedCount: summary.reusedCount,
+        skippedCount: summary.skippedCount,
+        failedCount: summary.failedCount,
+        unsupportedSourceCount: summary.unsupportedSourceCount,
+        unsupportedCandidateCount: summary.unsupportedCandidateCount,
+        staleCandidateCount: summary.staleCandidateCount,
+        staleAlertMinutes: summary.staleAlertMinutes,
+        proxyCount: summary.proxyCount,
+        deadlineReached: summary.deadlineReached,
+        durationMs: summary.durationMs,
+      },
+    });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "hot-verification-heartbeat-error", status, message: errorMessage(error) }));
+  }
 }
 
 function mergeCandidateLists(...lists) {

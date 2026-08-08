@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 process.env.NEXT_PUBLIC_SUPABASE_URL ||= "https://example.supabase.co";
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= "hot-offer-verifier-test-key";
@@ -9,9 +12,13 @@ const {
   groupCandidatesBySource,
   hotOfferDiff,
   hotOfferShardIndex,
+  hotVerifierHeartbeatStatus,
+  loadHotCandidateState,
+  mergeHotCandidatePool,
   mergeHotOfferCandidates,
   normalizeHotVerifiedOffer,
   postHotVerificationWithRetry,
+  persistHotCandidateState,
   resolveHotCandidateVerification,
   selectHotVerifiedOffers,
 } = await import("./verify-hot-offers.mjs");
@@ -44,6 +51,76 @@ assert.deepEqual(merged[0].hotSlices, [{ id: "plus-default", rank: 1 }, { id: "p
 const sourceOne = merged.filter((offer) => offer.sourceId === "s1");
 assert.ok(sourceOne.every((offer) => hotOfferShardIndex(offer, 2) === hotOfferShardIndex(sourceOne[0], 2)));
 assert.deepEqual(groupCandidatesBySource(merged).map((group) => [group.sourceId, group.candidates.length]), [["s1", 2], ["s2", 1]]);
+
+{
+  const nowMs = Date.parse("2026-08-08T09:30:00.000Z");
+  const current = [
+    { id: "current-new", sourceId: "s1", verifiedAt: "2026-08-08T09:28:00.000Z" },
+    { id: "current-old", sourceId: "s2", verifiedAt: "2026-08-08T09:20:00.000Z" },
+  ];
+  const stored = [
+    {
+      candidate: { id: "sticky-oldest", sourceId: "s3", verifiedAt: "2026-08-08T09:05:00.000Z" },
+      lastRankedAt: "2026-08-08T09:10:00.000Z",
+    },
+    {
+      candidate: { id: "expired", sourceId: "s4", verifiedAt: "2026-08-08T09:00:00.000Z" },
+      lastRankedAt: "2026-08-08T08:59:59.000Z",
+    },
+  ];
+  const pool = mergeHotCandidatePool(current, stored, {
+    nowMs,
+    stickyCandidateMs: 30 * 60_000,
+    hardLimit: 3,
+  });
+  assert.deepEqual(pool.candidates.map((candidate) => candidate.id), ["sticky-oldest", "current-old", "current-new"]);
+  assert.equal(pool.stickyCandidateCount, 1);
+  assert.equal(pool.candidates[0].hotSticky, true);
+
+  const currentPriority = mergeHotCandidatePool(current, stored, {
+    nowMs,
+    stickyCandidateMs: 30 * 60_000,
+    hardLimit: 2,
+  });
+  assert.deepEqual(new Set(currentPriority.candidates.map((candidate) => candidate.id)), new Set(["current-new", "current-old"]));
+
+  const stateDirectory = mkdtempSync(join(tmpdir(), "priceai-hot-candidates-"));
+  const statePath = join(stateDirectory, "candidates.json");
+  try {
+    assert.equal(persistHotCandidateState(statePath, pool.stateEntries), true);
+    assert.equal(statSync(statePath).mode & 0o777, 0o600);
+    assert.equal(JSON.parse(readFileSync(statePath, "utf8")).version, 1);
+    assert.deepEqual(
+      loadHotCandidateState(statePath, { nowMs, stickyCandidateMs: 30 * 60_000 }).map((entry) => entry.candidate.id).sort(),
+      ["current-new", "current-old", "sticky-oldest"],
+    );
+
+    writeFileSync(statePath, "{invalid-json", { mode: 0o600 });
+    assert.deepEqual(loadHotCandidateState(statePath, { nowMs, stickyCandidateMs: 30 * 60_000 }), []);
+    assert.equal(existsSync(statePath), false);
+  } finally {
+    rmSync(stateDirectory, { recursive: true, force: true });
+  }
+}
+
+assert.equal(hotVerifierHeartbeatStatus({
+  deadlineReached: false,
+  failedCount: 0,
+  writeFailedCount: 0,
+  staleCandidateCount: 0,
+  unsupportedCandidateCount: 0,
+  verifiedCount: 1,
+  reusedCount: 0,
+}), "success");
+assert.equal(hotVerifierHeartbeatStatus({
+  deadlineReached: false,
+  failedCount: 0,
+  writeFailedCount: 0,
+  staleCandidateCount: 1,
+  unsupportedCandidateCount: 0,
+  verifiedCount: 1,
+  reusedCount: 0,
+}), "partial");
 
 assert.deepEqual(
   hotOfferDiff(

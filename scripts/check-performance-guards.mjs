@@ -497,6 +497,9 @@ const hotVerifierLauncherText = read("ops/shop-collectors/run-hot-offer-verifier
 assert(/STATE_DIRECTORY/.test(hotVerifierLauncherText), "hot offer verifier must persist proxy leases in its systemd state directory.");
 assert(/--proxy-state-path/.test(hotVerifierLauncherText), "hot offer verifier must pass the proxy lease state path.");
 assert(/--proxy-max-runs/.test(hotVerifierLauncherText), "hot offer verifier must cap cross-run proxy lease reuse.");
+assert(/--candidate-state-path/.test(hotVerifierLauncherText), "hot offer verifier must persist sticky candidates in its systemd state directory.");
+assert(/PRICEAI_HOT_VERIFY_STICKY_CANDIDATE_MS:-1800000/.test(hotVerifierLauncherText), "hot offer verifier must retain ranked candidates for thirty minutes.");
+assert(/PRICEAI_HOT_VERIFY_STALE_ALERT_MS:-1200000/.test(hotVerifierLauncherText), "hot offer verifier must flag candidates older than twenty minutes.");
 assert(/PRICEAI_HOT_VERIFY_PROXY_REUSE_TTL_MS:-600000/.test(hotVerifierLauncherText), "hot offer verifier fallback lease TTL must cover two five-minute runs.");
 
 const hotVerifierServiceText = read("ops/shop-collectors/systemd/priceai-hot-offer-verifier.service");
@@ -506,6 +509,8 @@ assert(/StateDirectoryMode=0700/.test(hotVerifierServiceText), "hot offer verifi
 const hotVerifierEnvExampleText = read("ops/shop-collectors/hot-offer-verifier.env.example");
 assert(/PRICEAI_HOT_VERIFY_PROXY_REUSE_TTL_MS=600000/.test(hotVerifierEnvExampleText), "hot offer verifier env must preserve the ten-minute proxy lease TTL.");
 assert(/PRICEAI_HOT_VERIFY_PROXY_MAX_RUNS=2/.test(hotVerifierEnvExampleText), "hot offer verifier env must cap proxy leases at two runs.");
+assert(/PRICEAI_HOT_VERIFY_STICKY_CANDIDATE_MS=1800000/.test(hotVerifierEnvExampleText), "hot offer verifier env must keep the thirty-minute sticky candidate window.");
+assert(/PRICEAI_HOT_VERIFY_STALE_ALERT_MS=1200000/.test(hotVerifierEnvExampleText), "hot offer verifier env must keep the twenty-minute stale alert threshold.");
 
 for (const file of listSourceFiles(["src/app", "src/lib"])) {
   if (!isPublicRuntimeFile(file)) continue;

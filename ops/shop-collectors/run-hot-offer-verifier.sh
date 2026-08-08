@@ -40,6 +40,9 @@ exec "$node_bin" scripts/verify-hot-offers.mjs \
   --max-duration-ms "${PRICEAI_HOT_VERIFY_MAX_DURATION_MS:-270000}" \
   --recent-reuse-ms "${PRICEAI_HOT_VERIFY_RECENT_REUSE_MS:-90000}" \
   --request-delay-ms "${PRICEAI_HOT_VERIFY_REQUEST_DELAY_MS:-1500}" \
+  --sticky-candidate-ms "${PRICEAI_HOT_VERIFY_STICKY_CANDIDATE_MS:-1800000}" \
+  --stale-alert-ms "${PRICEAI_HOT_VERIFY_STALE_ALERT_MS:-1200000}" \
+  --candidate-state-path "${PRICEAI_HOT_VERIFY_CANDIDATE_STATE_PATH:-$state_dir/candidates.json}" \
   --takeover-after-ms "${PRICEAI_HOT_VERIFY_TAKEOVER_AFTER_MS:-0}" \
   --proxy-reuse-limit 0 \
   --proxy-reuse-ttl-ms "${PRICEAI_HOT_VERIFY_PROXY_REUSE_TTL_MS:-600000}" \

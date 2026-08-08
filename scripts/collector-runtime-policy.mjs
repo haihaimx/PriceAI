@@ -38,9 +38,11 @@ export const COLLECTOR_RUNTIME_LAUNCHER_FILES = [
   "ops/collector-runtime/run-main.sh",
   "ops/shop-collectors/run-hot-offer-verifier.sh",
   "ops/shop-collectors/hot-offer-verifier.env.example",
+  "ops/shop-collectors/hot-offer-verifier-shanghai.env.example",
   "ops/shop-collectors/systemd/priceai-hot-offer-verifier.service",
   "ops/shop-collectors/systemd/priceai-hot-offer-verifier-hangzhou.timer",
   "ops/shop-collectors/systemd/priceai-hot-offer-verifier-heyuan.timer",
+  "ops/shop-collectors/systemd/priceai-hot-offer-verifier-shanghai.timer",
 ];
 
 export const COLLECTOR_RUNTIME_WATCHLIST = uniqueSorted([
